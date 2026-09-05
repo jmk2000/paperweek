@@ -1,3 +1,4 @@
+import {setupDisplay,showBuild} from './display-controls.mjs';
 import {defaults,validateConfig,loadConfig,saveConfig,clearConfig,ascii} from './config.mjs';
 import {createRenderer} from './renderer.mjs';
 import {demoEvents} from './events.mjs';
@@ -14,7 +15,7 @@ const now=()=>zonedParts(new Date(),config.timezone);
 function say(text,error=false){$('message').textContent=text;$('source-badge').textContent=error?'NOT SYNCED':config.source==='demo'?'DEMO':'GOOGLE';$('source-badge').classList.toggle('error',error);}
 function note(text){$('settings-message').textContent=text;}
 function setBusy(value){busy=value;document.querySelectorAll('[data-nav]').forEach(b=>b.disabled=value);$('refresh').disabled=value;}
-function updateLabels(){const labels=['Previous','Today',renderer?.month?'Week view':'Month view','Next'];document.querySelectorAll('[data-nav]').forEach((b,i)=>{b.querySelector('span').textContent=config.persistentLabels?labels[i]:'';});}
+function updateLabels(){const labels=['Previous','Today',renderer?.month?'Week view':'Month view','Next'];document.querySelectorAll('[data-nav]').forEach((b,i)=>{b.querySelector('span').textContent=labels[i];});}
 function stableStatus(stale=false){return `${stale?'STALE / ':''}${config.source==='demo'?'DEMO / Invented events':'GOOGLE / Read-only'} / ${config.timezone}`;}
 function pause(ms,signal){return new Promise((resolve,reject)=>{
   if(signal.aborted)return reject(new DOMException('Cancelled','AbortError'));
@@ -161,8 +162,8 @@ $('forget').onclick=async()=>{if(!confirm('Remove this browser’s saved names a
 $('revoke').onclick=async()=>{if(!googleSource.connected){note('There is no active token. Remove Paperweek access in your Google Account’s third-party connections to revoke older consent.');return;}if(!confirm('Revoke this app’s Google permissions? This does not delete any calendar events.'))return;try{++revision;controller?.abort();setBusy(false);await googleSource.revoke();connectedClient='';availableCalendars=[];lastGood=null;renderer.events([]);renderer.render('unavailable','GOOGLE DISCONNECTED',true);$('agenda-text').replaceChildren();note('Google access revoked.');say('Google access revoked.',true);}catch{note('Unable to confirm revocation. Remove the app in Google Account settings.');}};
 $('export-screen').onclick=()=>{if(config.source==='google'&&!confirm('This image may contain private calendar information. Save it locally?'))return;$('calendar').toBlob(blob=>{if(blob)download(blob,'paperweek-display.private.png');},'image/png');};
 $('refresh').onclick=()=>load('manual');
-$('fullscreen').onclick=async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();}catch{say('Full screen is unavailable here. Try Chrome’s Add to home screen on HTTPS.');}};
 $('wake').onclick=async()=>{wantWake=!wantWake;if(wantWake)await keepAwake();else{await wake?.release();wake=null;$('wake').textContent='Keep awake';}};
+setupDisplay(navigate,say);showBuild();
 for(const b of document.querySelectorAll('[data-nav]'))b.onclick=()=>navigate(Number(b.dataset.nav));
 document.addEventListener('keydown',e=>{if(dialog.open||['INPUT','SELECT','TEXTAREA','BUTTON'].includes(document.activeElement?.tagName))return;const map={ArrowLeft:0,ArrowRight:3,t:1,T:1,m:2,M:2,'1':0,'2':1,'3':2,'4':3};if(Object.hasOwn(map,e.key)){e.preventDefault();navigate(map[e.key]);}});
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){keepAwake();if(renderer&&!busy)load('resume');}});

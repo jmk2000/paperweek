@@ -12,6 +12,7 @@ COPY tools/ tools/
 COPY web/ web/
 COPY docs/THIRD_PARTY.md docs/THIRD_PARTY.md
 COPY LICENSE LICENSE
+COPY package.json package.json
 RUN bash tools/build-preview.sh
 
 FROM ${PYTHON_IMAGE} AS runtime

@@ -7,7 +7,7 @@ from pathlib import Path
 import shutil
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ['index.html','styles.css','app.mjs','config.mjs','dates.mjs','events.mjs','google.mjs',
-          'renderer.mjs','server.html','admin.html','backend-app.mjs','admin.mjs','backend-client.mjs','backend.css','manifest.webmanifest','icon.svg','icon-192.png','icon-512.png']
+          'renderer.mjs','display-controls.mjs','server.html','admin.html','backend-app.mjs','admin.mjs','backend-client.mjs','backend.css','manifest.webmanifest','icon.svg','icon-192.png','icon-512.png']
 def package(backend: str) -> Path:
     out = ROOT / f'dist-{backend}'
     if out.exists(): shutil.rmtree(out)
@@ -18,7 +18,7 @@ def package(backend: str) -> Path:
     for name in binaries:
         if not (source/name).is_file(): raise SystemExit(f'Missing {source/name}; build {backend} first.')
         shutil.copy2(source/name,out/name)
-    (out/'build-info.json').write_text(json.dumps({'version':'0.5.0','backend':backend},indent=2)+'\n')
+    (out/'build-info.json').write_text(json.dumps({'version':json.loads((ROOT/'package.json').read_text())['version'],'backend':backend},indent=2)+'\n')
     (out/'.nojekyll').write_text('')
     # Licence text is public metadata, not a household setting. Do not copy any
     # font file or other unreviewed build asset into the distribution.
@@ -39,6 +39,9 @@ def package(backend: str) -> Path:
         notices.append('EMSCRIPTEN-LICENSE.txt')
     files = sorted([*ASSETS,*binaries,'build-info.json',*notices])
     digest = hashlib.sha256(b''.join((out/p).read_bytes() for p in files)).hexdigest()[:16]
+    info=json.loads((out/'build-info.json').read_text())
+    info['build']=digest
+    (out/'build-info.json').write_text(json.dumps(info,indent=2)+'\n')
     # Only the public app shell is cached. Google requests and local settings are
     # never handled by this worker. A changed build waits for old tabs to close.
     worker = """/* Generated public-assets-only cache. */

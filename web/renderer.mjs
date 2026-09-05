@@ -4,7 +4,7 @@ function rgb(value){return `#${value.toString(16).padStart(6,'0')}`;}
 export function canvasImports(canvas,readString) {
   const ctx=canvas.getContext('2d',{alpha:false});
   return {
-    begin(paper){ctx.fillStyle=paper?'#f5f3e9':'#ffffff';ctx.fillRect(0,0,1600,1200);},
+    begin(paper){ctx.fillStyle=paper?'#f5f3e9':'#ffffff';ctx.fillRect(0,0,canvas.width,canvas.height);},
     rect(x,y,w,h,colour){ctx.fillStyle=rgb(colour);ctx.fillRect(x,y,w,h);},
     text(x,y,w,h,pointer,size,colour,align){
       const text=readString(pointer);ctx.save();ctx.beginPath();ctx.rect(x,y,w,h);ctx.clip();
@@ -35,7 +35,7 @@ export class Renderer {
   constructor(call,type,canvas){this.call=call;this.type=type;this.canvas=canvas;this.config=null;}
   configure(c){this.config=c;this.call('pw_configure',ascii(c.title,80),c.timezone,c.weekStart,c.members.findIndex(m=>m.key===c.rotaMember),Number(c.deduplicate));
     c.members.forEach((m,i)=>{if(!this.call('pw_person',i,ascii(m.label,40),m.badge,COLOURS[m.colour]))throw new Error('Invalid person configuration.');});
-    this.call('pw_help_configure',Number(c.persistentLabels),c.helpSeconds);
+    this.call('pw_help_configure',Number(this.canvas?true:c.persistentLabels),c.helpSeconds);
   }
   clock(day,second){this.call('pw_clock',day,second);}
   select(day,month){this.call('pw_select',day,Number(month));}
@@ -68,7 +68,7 @@ export async function createRenderer(canvas) {
     const {default:createModule}=await import('./paperweek-lvgl.mjs');
     const module=await createModule();
     const call=(name,...args)=>module.ccall(name,'number',args.map(a=>typeof a==='string'?'string':'number'),args);
-    call('pw_init');return new Renderer(call,'LVGL / WebAssembly',canvas);
+    call('pw_init');return webRenderer(call,'LVGL / WebAssembly',canvas,info);
   }
   if(info.backend!=='preview')throw new Error('Unknown renderer backend.');
   let instance;
@@ -82,5 +82,21 @@ export async function createRenderer(canvas) {
     const values=args.map(value=>{if(typeof value!=='string')return value;const bytes=encoder.encode(value);if(pointer+bytes.length+1>end)throw new Error('Input string exceeds the WASM bridge limit.');const address=pointer;heap.set(bytes,pointer);pointer+=bytes.length;heap[pointer++]=0;return address;});
     return instance.exports[name](...values);
   };
-  call('pw_init');return new Renderer(call,'C/WASM preview · browser fonts',canvas);
+  call('pw_init');return webRenderer(call,'C/WASM preview · browser fonts',canvas,info);
+}
+
+function webRenderer(call,type,canvas,info){
+  const renderer=new Renderer(call,type,canvas);
+  renderer.build=info;
+  let sized=false;
+  const resize=()=>{
+    const bounds=canvas.parentElement.getBoundingClientRect();
+    const height=Math.max(1125,Math.min(2600,Math.round(1600*bounds.height/bounds.width)));
+    if(sized&&canvas.height===height)return;
+    sized=true;
+    canvas.height=height;call('pw_viewport',height);
+    if(renderer.config)renderer.draw();
+  };
+  resize();new ResizeObserver(resize).observe(canvas.parentElement);
+  return renderer;
 }

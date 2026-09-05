@@ -57,3 +57,16 @@ test('actual WASM month navigation preserves dates and clamps month end',async()
 test('actual WASM model hash does not depend on poll timestamp',async()=>{const {r}=await wasm();const c=defaults();r.configure(c);const d=ordinal('2026-10-01');r.clock(d,0);r.select(d,true);r.events(demoEvents(r.range.first,r.range.count,c));const a=r.prepare('demo','DEMO');r.clock(d,1);assert.equal(r.prepare('demo','DEMO'),a);assert.notEqual(r.prepare('demo','STALE',true),a);});
 test('actual WASM renders Sunday first when configured',async()=>{const {r,texts}=await wasm();const c=defaults();c.weekStart=0;r.configure(c);const d=ordinal('2026-10-01');r.clock(d,0);r.select(d,true);r.events([]);r.render('demo','DEMO');const headers=texts.filter(t=>/^(MON|TUE|WED|THU|FRI|SAT|SUN)$/.test(t));assert.equal(headers[0],'SUN');});
 test('actual WASM overlay consumes first press and expires after visible timer',async()=>{const {r}=await wasm();const c=defaults();c.persistentLabels=false;r.configure(c);assert.equal(r.press(0,false),1);assert.equal(r.helpOpen,true);assert.equal(r.expire(30000,true),false);r.visible(19000);assert.equal(r.expire(38999,false),false);assert.equal(r.expire(39000,false),true);assert.equal(r.press(40000,false),1);assert.equal(r.press(40001,false),2);});
+
+test('swipes distinguish horizontal navigation from scrolling, taps and slow drags',async()=>{
+  const {swipeAction}=await import('../web/display-controls.mjs');
+  assert.equal(swipeAction(-120,10,200),3);
+  assert.equal(swipeAction(120,-10,200),0);
+  for(const args of [[20,0,200],[80,100,200],[120,0,1000],[0,0,0]])assert.equal(swipeAction(...args),null);
+});
+test('web viewport removes hardware labels and touch navigation acts immediately',async()=>{
+  const {r,texts}=await wasm();r.canvas={};r.configure({...defaults(),persistentLabels:false});
+  r.call('pw_viewport',1900);r.select(ordinal('2026-09-05'),true);r.clock(ordinal('2026-09-05'),0);r.events([]);r.render('demo','DEMO');
+  assert.ok(!texts.some(t=>t.includes('PREVIOUS')||t.includes('frame button')));
+  assert.equal(r.press(0,false),2);
+});

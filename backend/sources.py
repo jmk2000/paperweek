@@ -78,6 +78,7 @@ class SourceInput(BaseModel):
     pollMinutes: int = Field(default=30, ge=5, le=1440)
     mode: Literal['events', 'rota'] = 'events'
     defaultRota: Literal['unknown', 'work'] = 'unknown'
+    emptyDaysOff: bool = False
     rules: list[RotaRule] = Field(default_factory=list, max_length=20)
 
     @field_validator('label', 'calendarId')

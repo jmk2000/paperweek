@@ -3,6 +3,10 @@
 #include <stdio.h>
 #include <string.h>
 
+static int web_height;
+void pw_ui_web_height(int height) { web_height=height; }
+static int grid_bottom(void) { return web_height ? web_height-90 : 1035; }
+
 /* Representative colours only; not a calibrated Spectra 6 proof. */
 uint32_t pw_palette_rgb(pw_colour c, bool paper) {
     static const uint32_t reflective[] = {0x20211e, 0xf5f3e9, 0xad332b, 0xd6b633, 0x365889, 0x3e704e};
@@ -50,7 +54,7 @@ static void rota_legend(const pw_view *v) {
 static void week_view(const pw_view *v) {
     for(int d=0; d<7; ++d) {
         const pw_day *day = &v->days[d]; int x=44+d*216;
-        if(d) rect(x-10,275,1,753,PW_BLACK);
+        if(d) rect(x-10,275,1,grid_bottom()-275,PW_BLACK);
         txt(x,278,91,30,day->dow,20,PW_BLACK);
         txt(x+105,270,82,51,day->number,40,PW_BLACK);
         txt(x,310,92,23,day->month,14,PW_BLACK);
@@ -59,7 +63,7 @@ static void week_view(const pw_view *v) {
         else rect(x,380,194,1,PW_BLACK);
         if(day->count==0) txt(x+3,429,187,65,strcmp(v->mode,"unavailable")==0 ? "Calendar not\nloaded yet" : "No events",20,PW_BLACK);
         for(unsigned i=0; i<day->count; ++i) {
-            const pw_item *item=&day->items[i]; int y=421+(int)i*96;
+            const pw_item *item=&day->items[i]; int y=421+(int)i*(web_height?(grid_bottom()-421-30)/6:96);
             rect(x,y+2,5,82,item->colour);
             txt(x+13,y,180,25,item->time,20,PW_BLACK);
             txt(x+13,y+26,180,52,item->title,20,PW_BLACK);
@@ -67,11 +71,11 @@ static void week_view(const pw_view *v) {
         }
         if(day->overflow) {
             char more[64]; snprintf(more,sizeof more,"+%u more on phone",day->overflow);
-            txt(x,1005,196,24,more,14,PW_BLACK);
+            txt(x,grid_bottom()-30,196,24,more,14,PW_BLACK);
         }
     }
 }
-static void compact_entry(int x, int y, const pw_item *item) {
+static void compact_entry(int x, int y, int height, const pw_item *item) {
     char line[256], when[32];
     if(item->all_day) when[0]=0;
     else {
@@ -82,11 +86,11 @@ static void compact_entry(int x, int y, const pw_item *item) {
     snprintf(line,sizeof line,"%s%s%s",when,when[0]?" ":"",item->title);
     rect(x,y+2,18,18,item->colour);
     centred(x,y+2,18,19,item->badge,14,(item->colour==PW_YELLOW)?PW_BLACK:PW_WHITE);
-    txt(x+25,y,170,23,line,16,PW_BLACK);
+    txt(x+25,y,170,height,line,height>23?20:16,PW_BLACK);
 }
 static void month_view(const pw_view *v) {
     for(int d=0; d<7; ++d) txt(52+d*216,273,190,28,v->days[d].dow,16,PW_BLACK);
-    int top=309, height=726/(int)v->rows;
+    int top=309, height=(grid_bottom()-309)/(int)v->rows;
     for(unsigned i=0; i<v->day_count; ++i) {
         int x=44+(int)(i%7)*216, y=top+(int)(i/7)*height;
         const pw_day *day=&v->days[i];
@@ -96,7 +100,8 @@ static void month_view(const pw_view *v) {
         else txt(x+4,y+8,48,32,day->number,24,PW_BLACK);
         if(!day->in_month) txt(x+43,y+13,33,23,day->month,14,PW_BLACK);
         if(v->rota_owner[0]) shift(x+82,y+10,116,day,v,true);
-        for(unsigned n=0; n<day->count; ++n) compact_entry(x+4,y+40+(int)n*21,&day->items[n]);
+        int step=web_height && height>=240?46:21;
+        for(unsigned n=0; n<day->count; ++n) compact_entry(x+4,y+40+(int)n*step,step>21?43:23,&day->items[n]);
         if(day->overflow) {
             char more[32]; snprintf(more,sizeof more,"+%u more",day->overflow);
             txt(x+4,y+height-18,191,18,more,14,PW_BLACK);
@@ -139,11 +144,12 @@ void pw_ui_render_ex(const pw_view *v,bool paper,bool overlay,bool persistent) {
     }
     rota_legend(v); rect(44,257,1512,2,PW_BLACK);
     if(v->is_month) month_view(v); else week_view(v);
-    rect(44,1046,1512,2,PW_BLACK);
-    txt(44,1064,1512,33,v->footer,20,PW_BLACK);
-    rect(44,1103,8,8,v->stale?PW_RED:PW_GREEN);
-    txt(63,1098,1489,23,v->status,14,PW_BLACK);
-    controls(v,overlay,persistent); pw_draw_end();
+    int footer=grid_bottom()+11;
+    rect(44,footer,1512,2,PW_BLACK);
+    txt(44,footer+18,1512,33,v->footer,20,PW_BLACK);
+    rect(44,footer+57,8,8,v->stale?PW_RED:PW_GREEN);
+    txt(63,footer+52,1489,23,v->status,14,PW_BLACK);
+    if(!web_height) controls(v,overlay,persistent); pw_draw_end();
 }
 void pw_ui_render(const pw_view *v,bool paper) { pw_ui_render_ex(v,paper,false,true); }
 void pw_ui_refresh_placeholder(bool paper) {

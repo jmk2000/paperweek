@@ -20,4 +20,5 @@ void pw_platform_init(void){
     lv_display_set_buffers(display,draw_buffer,NULL,sizeof draw_buffer,LV_DISPLAY_RENDER_MODE_PARTIAL);
     lv_display_set_flush_cb(display,flush);
 }
+void pw_platform_resize(int height){lv_display_set_resolution(lv_display_get_default(),PW_WIDTH,height);}
 void pw_platform_present(void){lv_timer_handler();lv_refr_now(NULL);}

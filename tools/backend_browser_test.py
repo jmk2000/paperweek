@@ -216,6 +216,7 @@ def main():
                 while state['refreshes']==0:
                     if time.time()>deadline:raise AssertionError('Refresh did not run')
                     tablet.wait_for_timeout(50)
+                tablet.locator('#display-menu > summary').click()
                 tablet.locator('#refresh').click()
                 tablet.wait_for_function("document.querySelector('#agenda-text').textContent.includes('Updated after automatic token refresh')",timeout=15000)
                 check(state['refreshes']>0,'expired Google token refreshed without tablet sign-in')
@@ -223,12 +224,14 @@ def main():
                 check(tablet.evaluate("__settings.has('paperweek.offline.v4')"),'offline view saved only when enabled')
                 # Simulate a network break at the browser bridge; no invented events replace saved data.
                 tablet.evaluate("()=>{globalThis.__liveFetch=globalThis.fetch;globalThis.fetch=async()=>{throw new Error('offline');};}")
+                tablet.locator('#display-menu > summary').click()
                 tablet.locator('#refresh').click();tablet.wait_for_timeout(150)
                 check('last loaded view' in tablet.locator('#message').inner_text(),'offline warning retains existing view')
                 tablet.evaluate('()=>{globalThis.fetch=globalThis.__liveFetch;}')
                 headers={'origin':origin,'x-paperweek-request':'1'}
                 device=admin_client.get('/api/admin/devices').json()[0]
                 admin_client.request('DELETE','/api/admin/devices/'+device['id'],json={},headers=headers)
+                tablet.locator('#display-menu > summary').click()
                 tablet.locator('#refresh').click();tablet.locator('#pair-dialog').wait_for(state='visible')
                 check(not tablet.evaluate("__settings.has('paperweek.offline.v4')"),'online revocation erases local cache')
                 check(not errors,'no browser script exceptions: '+str(errors))

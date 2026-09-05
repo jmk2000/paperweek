@@ -208,6 +208,7 @@ class Synchronizer:
                                 raise CalendarError('rota', str(e)) from None
                             if interpretation=='unknown':
                                 unmatched += 1
+                                items.append({**cleaned, '_rotaUnknown': True})
                             if mapped is not None:
                                 items.append(mapped)
                         if unmatched:
@@ -287,6 +288,8 @@ class Synchronizer:
         all_ready = True
         for m in config.members:
             items, seen = {}, set()
+            off_candidates, occupied = set(), set()
+            inference_safe = True
             mine = [s for s in sources if s['member']==m.key]
             for source in mine:
                 threshold = max(900, source['pollMinutes']*180)
@@ -301,9 +304,24 @@ class Synchronizer:
                     coverage.append({'member':m.key, 'source':hashlib.sha256(source['id'].encode()).hexdigest()[:16],
                         'kind':source['kind'], 'month':month,'ready':ready,'lastSuccess':row['success'], 'error':row['error'],
                         'warning':warning, 'stale':bool(not ready or row['error'] or self.clock()-(row['success'] or 0)>threshold)})
+                    if source['mode'] == 'rota':
+                        fresh = ready and not coverage[-1]['stale']
+                        # Unmatched entries are retained below as occupied days.
+                        warnings = json.loads(row.get('warnings') or '[]')
+                        safe_warnings = all('rota occurrence(s) did not match a rule' in w for w in warnings)
+                        inference_safe &= fresh and safe_warnings
+                        if source.get('emptyDaysOff') and fresh and safe_warnings:
+                            start = max(first, date.fromisoformat(month))
+                            end = min(first + timedelta(days=days), add_month(date.fromisoformat(month), 1))
+                            off_candidates.update(start + timedelta(days=i) for i in range((end-start).days))
                     if not ready:
                         continue
                     for r in json.loads(row['data']):
+                        if source['mode'] == 'rota' or TAG.match(r['summary']):
+                            occupied.update(first + timedelta(days=i) for i in range(days)
+                                            if intersects(r, first + timedelta(days=i), 1, config.timezone))
+                        if r.get('_rotaUnknown'):
+                            continue
                         identity = r['id'] or r['iCalUID']+dumps(r['start'])
                         item_key = (source['id'], identity, dumps(r['start']))
                         if item_key in seen or not intersects(r,first,days,config.timezone):
@@ -326,6 +344,12 @@ class Synchronizer:
                                'summary':title,'start':r['start'],'end':r['end']}
                         if duplicate not in items or marker:
                             items[duplicate] = out
+            if inference_safe and m.key == config.rotaMember:
+                for day in sorted(off_candidates - occupied):
+                    identity = 'inferred-off:' + m.key + ':' + day.isoformat()
+                    items[identity] = {'id':identity, 'iCalUID':identity, 'summary':'[PW:OFF]',
+                                       'start':{'date':day.isoformat()},
+                                       'end':{'date':(day+timedelta(days=1)).isoformat()}}
             batches.append({'member':m.key,'items':list(items.values())})
         if sum(len(b['items']) for b in batches)>2048:
             raise ValueError('More than 2048 expanded records in this view; use a shorter range or fewer sources.')

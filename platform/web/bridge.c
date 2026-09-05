@@ -4,6 +4,8 @@
 
 void pw_platform_init(void);
 void pw_platform_present(void);
+void pw_platform_resize(int height);
+void pw_viewport(int height){pw_ui_web_height(height);pw_platform_resize(height);}
 static pw_config config;
 static pw_event events[PW_MAX_EVENTS];
 static unsigned event_count;

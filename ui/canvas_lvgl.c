@@ -18,7 +18,7 @@ static const lv_font_t *font(int size) {
 }
 void pw_draw_begin(bool paper) {
     palette=paper; root=lv_screen_active(); lv_obj_clean(root); lv_obj_remove_style_all(root);
-    lv_obj_set_pos(root,0,0); lv_obj_set_size(root,PW_WIDTH,PW_HEIGHT);
+    lv_obj_set_pos(root,0,0); lv_obj_set_size(root,PW_WIDTH,lv_display_get_vertical_resolution(lv_display_get_default()));
     lv_obj_remove_flag(root,LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_bg_color(root,ink(PW_WHITE),0); lv_obj_set_style_bg_opa(root,LV_OPA_COVER,0);
 }

@@ -3,7 +3,7 @@ export const STORAGE_KEY = 'paperweek.settings.v3';
 export const COLOURS = {black: 0, red: 2, yellow: 3, blue: 4, green: 5};
 export function defaults() {
   return {
-    version: 3, title: 'Our calendar', timezone: 'UTC', weekStart: 1,
+    version: 3, title: 'Our calendar', timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC', weekStart: 1,
     defaultView: 'month', paperPalette: true, maskPrivate: true, deduplicate: false,
     rotaMember: 'member-2', persistentLabels: true, helpSeconds: 20,
     refreshSeconds: 0, pollMinutes: 5, clientId: '', source: 'demo',

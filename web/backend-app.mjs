@@ -1,3 +1,4 @@
+import {setupDisplay,showBuild} from './display-controls.mjs';
 import {defaults,validateConfig} from './config.mjs';
 import {createRenderer} from './renderer.mjs';
 import {demoEvents,normaliseEvent,validateEvents} from './events.mjs';
@@ -9,7 +10,7 @@ let revision=-1,epoch=-1,followToday=true,stale=false,prefs=preferences(),wake=n
 const now=()=>zonedParts(new Date(),config.timezone);
 function say(text,error=false){$('message').textContent=text;$('source-badge').textContent=error?'STALE / WAIT':config.source==='demo'?'DEMO':'SERVER';$('source-badge').classList.toggle('error',error);}
 function setBusy(value){busy=value;document.querySelectorAll('[data-nav]').forEach(b=>b.disabled=value);$('refresh').disabled=value;}
-function labels(){const names=['Previous','Today',renderer.month?'Week view':'Month view','Next'];document.querySelectorAll('[data-nav]').forEach((b,i)=>b.querySelector('span').textContent=config.persistentLabels?names[i]:'');}
+function labels(){const names=['Previous','Today',renderer.month?'Week view':'Month view','Next'];document.querySelectorAll('[data-nav]').forEach((b,i)=>b.querySelector('span').textContent=names[i]);}
 function blank(text){renderer.events([]);renderer.render('unavailable',text,true);lastHash='';$('agenda-text').replaceChildren();}
 function requirePair(){auth=null;lastGood=null;clearOffline();blank('DISPLAY NOT PAIRED / Open administration to get a pairing code');if(!$('pair-dialog').open)$('pair-dialog').showModal();}
 $('pair-dialog').addEventListener('cancel',e=>e.preventDefault());
@@ -113,7 +114,7 @@ $('offline-copy').onchange=()=>{prefs.offline=$('offline-copy').checked;setPrefe
 $('pair-form').onsubmit=async e=>{e.preventDefault();$('pair-message').textContent='Pairing…';try{await api('/api/pair',{method:'POST',body:{code:$('pair-code').value}});auth=await api('/api/session');$('pair-code').value='';$('pair-dialog').close();await load();}catch(e){$('pair-message').textContent=e.message;}};
 $('forget-device').onclick=async()=>{if(!confirm('Unpair this browser and remove its saved offline calendar?'))return;clearOffline();try{await api('/api/logout',{method:'POST'});}catch{}requirePair();};
 $('refresh').onclick=load;
-$('fullscreen').onclick=async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();}catch{say('Use Chrome’s home-screen installation or fullscreen controls.');}};
+setupDisplay(navigate,say);showBuild();
 for(const b of document.querySelectorAll('[data-nav]'))b.onclick=()=>navigate(Number(b.dataset.nav));
 document.addEventListener('keydown',e=>{if($('pair-dialog').open||['INPUT','BUTTON','SELECT'].includes(document.activeElement?.tagName))return;const map={ArrowLeft:0,ArrowRight:3,t:1,T:1,m:2,M:2,'1':0,'2':1,'3':2,'4':3};if(Object.hasOwn(map,e.key)){e.preventDefault();navigate(map[e.key]);}});
 window.addEventListener('online',()=>load());

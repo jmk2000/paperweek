@@ -1,3 +1,4 @@
+import {showBuild} from './display-controls.mjs';
 import {defaults,validateConfig} from './config.mjs';
 import {api,clearOffline} from './backend-client.mjs';
 const $=id=>document.getElementById(id),form=$('config-form');
@@ -133,7 +134,7 @@ function editSource(source){
 function readSource(){
   const f=sourceForm.elements,kind=f.kind.value;
   return {label:f.label.value.trim(),member:f.member.value,kind,calendarId:kind==='google'?f.calendarId.value:'',url:kind==='ical'?f.url.value.trim():'',
-    timezone:f.timezone.value.trim(),pollMinutes:Number(f.pollMinutes.value),mode:f.mode.value,defaultRota:f.defaultRota.value,enabled:f.enabled.checked,
+    timezone:f.timezone.value.trim(),pollMinutes:Number(f.pollMinutes.value),mode:f.mode.value,defaultRota:f.defaultRota.value,emptyDaysOff:f.emptyDaysOff.checked,enabled:f.enabled.checked,
     rules:f.mode.value==='rota'?[...$('rota-rules').children].map(row=>Object.fromEntries(['field','match','text','action'].map(k=>[k,row.querySelector(`[data-field="${k}"]`).value]))):[]};
 }
 async function refreshSources(){
@@ -181,3 +182,6 @@ window.addEventListener('beforeunload',e=>{if(dirty||sourceDirty){e.preventDefau
 if('serviceWorker'in navigator&&isSecureContext)navigator.serviceWorker.register('/server-sw.js',{scope:'/'}).catch(()=>{});
 try{await initialise();}catch(e){if(e.status!==401)notice(e.message,true);}
 setInterval(health,15000);
+
+showBuild();
+$('device-timezone').onclick=()=>{form.elements.timezone.value=Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC';dirty=true;$('save-state').textContent='Timezone changed · save shared settings to apply';};

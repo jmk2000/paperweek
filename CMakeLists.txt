@@ -27,7 +27,7 @@ if(PW_BUILD_LVGL)
   target_include_directories(paperweek-lvgl PRIVATE core ui)
   target_link_libraries(paperweek-lvgl PRIVATE paperweek_core lvgl::lvgl m)
   set_target_properties(paperweek-lvgl PROPERTIES SUFFIX ".mjs")
-  set(PW_EXPORTS "['_pw_init','_pw_configure','_pw_person','_pw_clear_events','_pw_add_event','_pw_select','_pw_clock','_pw_anchor','_pw_is_month','_pw_first','_pw_day_count','_pw_navigate','_pw_help_configure','_pw_press','_pw_visible','_pw_expire','_pw_help_open','_pw_prepare','_pw_draw','_pw_render','_pw_placeholder','_pw_day_rota','_pw_day_items','_pw_day_overflow','_pw_events_count']")
+  set(PW_EXPORTS "['_pw_viewport','_pw_init','_pw_configure','_pw_person','_pw_clear_events','_pw_add_event','_pw_select','_pw_clock','_pw_anchor','_pw_is_month','_pw_first','_pw_day_count','_pw_navigate','_pw_help_configure','_pw_press','_pw_visible','_pw_expire','_pw_help_open','_pw_prepare','_pw_draw','_pw_render','_pw_placeholder','_pw_day_rota','_pw_day_items','_pw_day_overflow','_pw_events_count']")
   target_link_options(paperweek-lvgl PRIVATE
     --no-entry -sMODULARIZE=1 -sEXPORT_ES6=1 -sEXPORT_NAME=createPaperweek
     -sENVIRONMENT=web -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=33554432

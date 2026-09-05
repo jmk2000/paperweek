@@ -300,3 +300,22 @@ def test_member_remove_also_removes_sources_without_google_write(setup):
     assert c.get('/api/admin/sources').json()['sources']==[]
     assert app.state.store.get_secret('source-secret:'+s['id']) is None
     assert all(r.method=='GET' or r.url.host=='oauth2.googleapis.com' for r in fake.calls)
+
+
+def test_complete_rota_empty_days_off_only_with_fresh_success(setup):
+    app,c,_,_=setup;login(c);runner=attach(app)
+    add(c,source_payload(emptyDaysOff=True));no_google_config(c)
+    result=ready(app,c)
+    entries=result['batches'][1]['items']
+    assert any(i['summary']=='[PW:OFF]' for i in entries)
+    assert not any(i['summary']=='[PW:OFF]' and i['start']['date']==MONTH.replace(day=10).isoformat() for i in entries)
+    app.state.store.execute("UPDATE windows SET error='fetch failed'")
+    assert not any(i['summary']=='[PW:OFF]' for i in snapshot(c).json()['batches'][1]['items'])
+
+
+def test_complete_rota_unknown_entry_blocks_off(setup):
+    app,c,_,_=setup;login(c);runner=attach(app);runner.data=feed(title='Unfamiliar shift')
+    add(c,source_payload(emptyDaysOff=True));no_google_config(c)
+    entries=ready(app,c)['batches'][1]['items']
+    assert any(i['summary']=='[PW:OFF]' for i in entries)
+    assert not any(i['start'].get('date')==MONTH.replace(day=10).isoformat() for i in entries)
