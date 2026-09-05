@@ -1,0 +1,43 @@
+cmake_minimum_required(VERSION 3.20)
+project(paperweek VERSION 0.1.0 LANGUAGES C CXX)
+set(CMAKE_C_STANDARD 99)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+option(PAPERWEEK_MODEL_ONLY "Build protocol tests without downloading LVGL or finding SDL" OFF)
+
+add_library(paperweek_model native/view_reader.cpp)
+target_include_directories(paperweek_model PUBLIC native)
+target_compile_options(paperweek_model PRIVATE -Wall -Wextra -Wpedantic)
+include(CTest)
+if(BUILD_TESTING)
+    add_executable(model_test tests/model_test.cpp)
+    target_link_libraries(model_test PRIVATE paperweek_model)
+    add_test(NAME view_protocol COMMAND model_test)
+endif()
+if(PAPERWEEK_MODEL_ONLY)
+    return()
+endif()
+
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(SDL2 REQUIRED IMPORTED_TARGET sdl2)
+include(FetchContent)
+set(LV_BUILD_CONF_PATH "${CMAKE_CURRENT_SOURCE_DIR}/lv_conf.h" CACHE PATH "" FORCE)
+set(CONFIG_LV_BUILD_DEMOS OFF CACHE BOOL "" FORCE)
+set(CONFIG_LV_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(CONFIG_LV_USE_THORVG_INTERNAL OFF CACHE BOOL "" FORCE)
+# Tagged source is fetched at build time. No third-party fonts are bundled in this project.
+FetchContent_Declare(lvgl
+    GIT_REPOSITORY https://github.com/lvgl/lvgl.git
+    GIT_TAG v9.3.0
+    GIT_SHALLOW TRUE
+    GIT_PROGRESS TRUE)
+FetchContent_MakeAvailable(lvgl)
+add_library(paperweek_ui native/calendar_ui.c)
+target_include_directories(paperweek_ui PUBLIC native)
+target_link_libraries(paperweek_ui PUBLIC lvgl::lvgl)
+if(UNIX)
+    target_link_libraries(paperweek_ui PUBLIC m)
+endif()
+add_executable(paperweek native/main.cpp)
+target_link_libraries(paperweek PRIVATE paperweek_ui paperweek_model PkgConfig::SDL2)
+target_compile_options(paperweek PRIVATE -Wall -Wextra -Wpedantic)

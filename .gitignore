@@ -1,0 +1,14 @@
+.venv/
+build/
+build-*/
+__pycache__/
+*.pyc
+.DS_Store
+credentials*.json
+client_secret*.json
+token*.json
+.env
+exports/
+*.ppm
+family-preview.png
+my-week.png

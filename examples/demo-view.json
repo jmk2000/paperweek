@@ -1,0 +1,228 @@
+{
+  "title": "Our week",
+  "month": "Aug / Sep 2026",
+  "span": "31 Aug - 6 Sep",
+  "week_number": "WEEK 36",
+  "today": "SATURDAY  /  5 SEP",
+  "timezone": "Europe/London",
+  "mode": "demo",
+  "calendars": [
+    {
+      "id": "alex",
+      "label": "Alex",
+      "colour": "blue",
+      "mask_titles": false
+    },
+    {
+      "id": "sam",
+      "label": "Sam",
+      "colour": "red",
+      "mask_titles": false
+    },
+    {
+      "id": "kids",
+      "label": "Kids",
+      "colour": "green",
+      "mask_titles": false
+    },
+    {
+      "id": "family",
+      "label": "Together",
+      "colour": "black",
+      "mask_titles": false
+    },
+    {
+      "id": "home",
+      "label": "Home",
+      "colour": "yellow",
+      "mask_titles": false
+    }
+  ],
+  "days": [
+    {
+      "dow": "MON",
+      "number": "31",
+      "month": "AUG",
+      "today": false,
+      "items": [
+        {
+          "time": "08:30",
+          "title": "School drop-off",
+          "owner": "Kids",
+          "colour": "green",
+          "all_day": false
+        },
+        {
+          "time": "17:30",
+          "title": "Evening run",
+          "owner": "Alex",
+          "colour": "blue",
+          "all_day": false
+        },
+        {
+          "time": "19:00",
+          "title": "Plan the meals",
+          "owner": "Home",
+          "colour": "yellow",
+          "all_day": false
+        }
+      ],
+      "overflow": 0
+    },
+    {
+      "dow": "TUE",
+      "number": "1",
+      "month": "SEP",
+      "today": false,
+      "items": [
+        {
+          "time": "09:30",
+          "title": "Working from home",
+          "owner": "Sam",
+          "colour": "red",
+          "all_day": false
+        },
+        {
+          "time": "16:30",
+          "title": "Swimming",
+          "owner": "Kids",
+          "colour": "green",
+          "all_day": false
+        }
+      ],
+      "overflow": 0
+    },
+    {
+      "dow": "WED",
+      "number": "2",
+      "month": "SEP",
+      "today": false,
+      "items": [
+        {
+          "time": "08:15",
+          "title": "Train to town",
+          "owner": "Alex",
+          "colour": "blue",
+          "all_day": false
+        },
+        {
+          "time": "18:00",
+          "title": "Cubs",
+          "owner": "Kids",
+          "colour": "green",
+          "all_day": false
+        },
+        {
+          "time": "19:30",
+          "title": "Pasta night",
+          "owner": "Together",
+          "colour": "black",
+          "all_day": false
+        }
+      ],
+      "overflow": 0
+    },
+    {
+      "dow": "THU",
+      "number": "3",
+      "month": "SEP",
+      "today": false,
+      "items": [
+        {
+          "time": "07:00",
+          "title": "Recycling out",
+          "owner": "Home",
+          "colour": "yellow",
+          "all_day": false
+        },
+        {
+          "time": "18:30",
+          "title": "Book club",
+          "owner": "Sam",
+          "colour": "red",
+          "all_day": false
+        }
+      ],
+      "overflow": 0
+    },
+    {
+      "dow": "FRI",
+      "number": "4",
+      "month": "SEP",
+      "today": false,
+      "items": [
+        {
+          "time": "15:30",
+          "title": "Playdate",
+          "owner": "Kids",
+          "colour": "green",
+          "all_day": false
+        },
+        {
+          "time": "18:00",
+          "title": "Pizza & a film",
+          "owner": "Together",
+          "colour": "black",
+          "all_day": false
+        }
+      ],
+      "overflow": 0
+    },
+    {
+      "dow": "SAT",
+      "number": "5",
+      "month": "SEP",
+      "today": true,
+      "items": [
+        {
+          "time": "ALL DAY",
+          "title": "Grandad's birthday",
+          "owner": "Together",
+          "colour": "black",
+          "all_day": true
+        },
+        {
+          "time": "09:00",
+          "title": "Football",
+          "owner": "Kids",
+          "colour": "green",
+          "all_day": false
+        },
+        {
+          "time": "12:30",
+          "title": "Lunch with friends",
+          "owner": "Together",
+          "colour": "black",
+          "all_day": false
+        }
+      ],
+      "overflow": 0
+    },
+    {
+      "dow": "SUN",
+      "number": "6",
+      "month": "SEP",
+      "today": false,
+      "items": [
+        {
+          "time": "10:00",
+          "title": "Walk in the woods",
+          "owner": "Together",
+          "colour": "black",
+          "all_day": false
+        },
+        {
+          "time": "17:00",
+          "title": "Get ready for Monday",
+          "owner": "Home",
+          "colour": "yellow",
+          "all_day": false
+        }
+      ],
+      "overflow": 0
+    }
+  ],
+  "footer": "NEXT  /  Sat 5 Sep 12:30  /  Lunch with friends",
+  "status": "DEMO / invented events / six items per day; long titles shortened / Europe/London",
+  "stale": false
+}

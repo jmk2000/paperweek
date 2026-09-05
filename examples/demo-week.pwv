@@ -1,0 +1,40 @@
+PAPERWEEK1
+META	Our week	Aug / Sep 2026	31 Aug - 6 Sep	WEEK 36	SATURDAY / 5 SEP	Europe/London	demo
+LEGEND	0	Alex	blue
+LEGEND	1	Sam	red
+LEGEND	2	Kids	green
+LEGEND	3	Together	black
+LEGEND	4	Home	yellow
+DAY	0	MON	31	0	AUG
+EVENT	0	08:30	School drop-off	Kids	green	0
+EVENT	0	17:30	Evening run	Alex	blue	0
+EVENT	0	19:00	Plan the meals	Home	yellow	0
+OVERFLOW	0	0
+DAY	1	TUE	1	0	SEP
+EVENT	1	09:30	Working from home	Sam	red	0
+EVENT	1	16:30	Swimming	Kids	green	0
+OVERFLOW	1	0
+DAY	2	WED	2	0	SEP
+EVENT	2	08:15	Train to town	Alex	blue	0
+EVENT	2	18:00	Cubs	Kids	green	0
+EVENT	2	19:30	Pasta night	Together	black	0
+OVERFLOW	2	0
+DAY	3	THU	3	0	SEP
+EVENT	3	07:00	Recycling out	Home	yellow	0
+EVENT	3	18:30	Book club	Sam	red	0
+OVERFLOW	3	0
+DAY	4	FRI	4	0	SEP
+EVENT	4	15:30	Playdate	Kids	green	0
+EVENT	4	18:00	Pizza & a film	Together	black	0
+OVERFLOW	4	0
+DAY	5	SAT	5	1	SEP
+EVENT	5	ALL DAY	Grandad's birthday	Together	black	1
+EVENT	5	09:00	Football	Kids	green	0
+EVENT	5	12:30	Lunch with friends	Together	black	0
+OVERFLOW	5	0
+DAY	6	SUN	6	0	SEP
+EVENT	6	10:00	Walk in the woods	Together	black	0
+EVENT	6	17:00	Get ready for Monday	Home	yellow	0
+OVERFLOW	6	0
+FOOTER	NEXT / Sat 5 Sep 12:30 / Lunch with friends
+STATUS	DEMO / invented events / six items per day; long titles shortened / Europe/London	0
