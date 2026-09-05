@@ -2,8 +2,8 @@
 
 ## Scope
 
-Version 0.4 is a single-household, private-LAN/VPN service. It synchronises selected calendars with
-read-only Google access, stores shared settings and serves paired displays. It keeps the existing
+Version 0.5 is a single-household, private-LAN/VPN service. It synchronises selected calendars with
+read-only Google access and iCalendar subscriptions, stores shared settings and serves paired displays. It keeps the existing
 portable C calendar engine and layout. It is not an OCR importer, event editor or finished e-paper
 firmware. No GPU or permanently running Mac is needed.
 
@@ -11,6 +11,10 @@ Use a Linux Docker host and Docker Compose v2, local DNS and a trusted HTTPS rev
 hostname examples below are intentionally generic. Keep real configuration out of the public repo.
 The backend is a **single process/one Uvicorn worker**: scheduler, token-refresh lock and rate limits
 are in-process. Do not scale workers or run a second writer against the same database.
+
+For multiple calendars per person, iCalendar setup and v0.4 upgrades, read
+[People and calendar sources](CALENDAR_SOURCES.md). Google configuration is optional for
+iCalendar-only installations. The source editor is in `/admin`; use Live calendars mode.
 
 ## 1. Back up the old browser settings
 
@@ -297,3 +301,11 @@ in the release environment. No hardware or cloud service has been configured on 
 - [NPM shared Docker networks](https://nginxproxymanager.com/advanced-config/)
 - [FastAPI container deployment](https://fastapi.tiangolo.com/deployment/docker/)
 - [Fernet key management](https://cryptography.io/en/latest/fernet/)
+
+## Version 0.5 migration
+
+The schema migration from v0.4 is additive (source records and window warnings). Preserve the
+existing `.env`, `.env.private`, `paperweek-data` volume and Compose project name. Existing Google
+credentials and device sessions are not deliberately revoked. Back up before upgrading; use a
+pre-upgrade database when downgrading. A layout/settings JSON export does not include additional
+sources or feed URLs. Those are covered only by the database plus its encryption key.

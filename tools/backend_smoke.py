@@ -20,7 +20,7 @@ def run(origin):
         passed += 1
         print('PASS ' + label)
     def fetch(path):
-        req = Request(origin + path, headers={'Accept':'*/*', 'User-Agent':'Paperweek-smoke/0.4'})
+        req = Request(origin + path, headers={'Accept':'*/*', 'User-Agent':'Paperweek-smoke/0.5'})
         try:
             r = urlopen(req, timeout=15)
         except HTTPError as e:
@@ -43,14 +43,14 @@ def run(origin):
     check(headers.get_content_type() == 'application/wasm', 'WebAssembly content type')
     status, headers, data = fetch('/server-sw.js')
     check(status == 200 and b'addEventListener' in data, 'backend service worker served')
-    for path in ('/api/session', '/api/admin/config', '/api/display/config', '/api/admin/devices'):
+    for path in ('/api/session', '/api/admin/config', '/api/display/config', '/api/admin/devices', '/api/admin/sources'):
         status, headers, data = fetch(path)
         check(status == 401, path + ' requires a session')
         check('no-store' in headers.get('Cache-Control',''), path + ' is not cacheable')
     for path in ('/.env.private', '/backend/app.py', '/data/paperweek.sqlite3'):
         status, headers, data = fetch(path)
         check(status == 404, path + ' is not served')
-    print(f'\n{passed} public HTTP checks passed. Next check live Google sync and the physical tablet in Administration.')
+    print(f'\n{passed} public HTTP checks passed. Next check live provider sync and the physical tablet in Administration.')
     return passed
 
 

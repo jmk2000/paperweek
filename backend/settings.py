@@ -90,6 +90,7 @@ class DisplayConfig(BaseModel):
     refreshSeconds: int = Field(default=0, ge=0, le=60)
     pollMinutes: int = Field(default=5, ge=1, le=60)
     clientId: str = ''  # Discarded: the server's OAuth identity is private configuration.
+    # 'google' is the backwards-compatible wire value for all live sources.
     source: Literal['demo', 'google'] = 'demo'
     members: list[Member] = Field(min_length=1, max_length=6, default_factory=lambda: [
         Member(key=f'member-{i}', label=label, badge=str(i), colour=colour)
@@ -120,8 +121,6 @@ class DisplayConfig(BaseModel):
                 raise ValueError(f'Each {attr} must be unique.')
         if self.rotaMember and self.rotaMember not in {m.key for m in self.members}:
             raise ValueError('Rota member must be a configured member.')
-        if self.source == 'google' and any(not m.calendarId for m in self.members):
-            raise ValueError('Choose a Google calendar for every member.')
         if any(not m.label.strip() for m in self.members):
             raise ValueError('Names cannot be blank.')
         self.clientId = ''

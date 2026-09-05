@@ -1,11 +1,11 @@
 # Paperweek
 
 A configurable shared calendar for an Android tablet now and a colour e-paper display later.
-**v0.4 adds an unattended, self-hosted calendar backend.** The portable C calendar rules and
+**v0.5 adds multiple Google/iCalendar sources per person to the unattended backend.** The portable C calendar rules and
 week/month layout are retained; the tablet no longer manages Google authorisation.
 
 **Experimental single-household release.** The backend and compiled C/WASM preview have local
-automated tests. A real Google account, Android device, Docker image build and NPM deployment
+automated tests. Real Google/iCalendar providers, an Android device, Docker image build and NPM deployment
 have not been exercised in the release environment. This is not finished ESP32 firmware.
 
 ## What is included
@@ -15,7 +15,11 @@ have not been exercised in the release environment. This is not finished ESP32 f
 - A browser administration screen for shared configuration, Google connection and sync health.
 - One-use tablet pairing codes and independently revocable read-only display sessions. Google
   credentials and calendar IDs are not sent to paired displays.
-- One to six configurable calendars; generic demo data; week/month views; previous/next/today;
+- One to six configurable people/display groups, with up to 24 additional sources. A person can
+  have Google appointments and an independent iCalendar work feed without another display slot.
+- Private subscription URLs, isolated bounded recurrence parsing, per-source health, preview and
+  explicit rota rules; feeds can be appointments or status-band-only.
+- Generic demo data; week/month views; previous/next/today;
   one optional rota band; privacy masking; six-colour design palette; physical-button simulation.
 - The actual existing C model and layout compiled to WebAssembly. The supplied preview uses
   browser fonts, **not an LVGL framebuffer**. The separate LVGL build target remains available.
@@ -52,10 +56,11 @@ credentials or household settings need committing.
    bind IP and port in `.env`. Restrict that port to the proxy.
 4. Point NPM at `paperweek:8080` on the shared Docker network, or at the guest IP/port. Use HTTP to
    the container, trusted HTTPS to browsers, **Cache Assets off**, and no custom Advanced headers.
-5. Visit `/admin`, sign in, connect Google, map each calendar, choose Google as the data source, and
-   save. Existing private v0.3 settings exports can be imported. Create a pairing code, then enter
+5. Visit `/admin`, sign in, configure people and choose **Live calendars · Google + iCalendar**.
+   Connect Google for Google sources, or add iCalendar sources without a Google account. Existing private v0.3 settings exports can be imported. Create a pairing code, then enter
    it at `/` on the tablet. The tablet does not need your administrator password or Google sign-in.
 
+See **[People, calendar sources and rota subscriptions](docs/CALENDAR_SOURCES.md)** for the new editor.
 See **[complete deployment, migration and backup instructions](docs/BACKEND.md)** before upgrading.
 An old service worker can temporarily show the legacy UI: export old settings first, then visit
 `/admin` directly at the new deployment and close/reopen the old display tab.
@@ -69,14 +74,18 @@ last complete data and show stale status; missing cache coverage is not presente
 
 The service warms the previous month, current month and next two months. Other requested periods
 within approximately two years either side are queued on demand. A first load can take a minute;
-large calendars and provider limits can take longer. All selected calendars/months must be available
-before a complete snapshot is delivered. Caches are a working copy; Google remains authoritative.
+large calendars and provider limits can take longer. All enabled sources/months must be available
+before a complete snapshot is delivered. Caches are a working copy; The configured providers remain authoritative.
 
 Revocation, expired refresh credentials and Workspace policy changes can still require an
 administrator to reconnect. A backend cannot force Android to restart a browser after reboot,
 keep a sleeping tablet online or guarantee a reminder. See [limits and tests](docs/TESTING.md).
 
 ## Rota markers
+
+For a subscribed rota, attach the feed to the existing person, select **Rota band only** and review
+explicit matching rules in the source preview. Keep that person's personal Google calendar in
+place. You do not need to copy shifts into Google or add another person.
 
 Choose a tracked member in Administration. Create ordinary events in that calendar with prefixes:
 
@@ -95,7 +104,7 @@ The **status** remains visible even if the underlying shift's descriptive title 
 ## Source reuse and boundaries
 
 ```text
-Google -> private Python backend -> bounded, privacy-filtered event data
+Google + iCalendar -> private Python backend -> bounded, privacy-filtered event data
                                       |
                            shared JS timezone adapter
                                       |
@@ -137,7 +146,7 @@ For the older standalone browser and LVGL toolchains, see [legacy static documen
 ## Privacy, backups and licence
 
 Public defaults are generic. Runtime configuration, event data, tokens and device sessions live in
-private files/volumes, not source. Google credentials are encrypted at rest; cached events and
+private files/volumes, not source. Google credentials, subscription URLs and raw feeds are encrypted at rest; cached events and
 settings in SQLite are not. Read [SECURITY.md](SECURITY.md), protect the host/backups, and never
 commit `.env.private`, photos, exported settings or your database.
 

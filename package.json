@@ -1,6 +1,6 @@
 {
   "name": "paperweek",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "type": "module",
   "description": "A configurable shared calendar with a portable C display core.",

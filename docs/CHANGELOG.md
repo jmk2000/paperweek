@@ -1,3 +1,18 @@
+# v0.5.0 — people with multiple calendar sources
+
+- Separate People / Add person from source creation. A person keeps one colour and can combine
+  a primary Google calendar with additional Google and iCalendar subscriptions.
+- Up to six display people/groups and 24 additional sources. Added per-person Add source action.
+- Encrypted, write-only subscription links; HTTPS/webcal adapter, vetted/pinned DNS, conditional
+  downloads, resource-limited iCalendar parsing, recurrence exceptions and per-source cache health.
+- Rota-only sources with explicit title/category rules, private preview, unknown-by-default
+  classification and safeguards against timed OFF and exposing shifts as appointments.
+- Additive migration from v0.4 retains Google credentials, settings and device pairings.
+- No Google writes, multiple separate Google authorisations, CalDAV, OCR or voice integration.
+- See CALENDAR_SOURCES.md and TESTING.md for supported forms, limits and tested boundaries.
+
+---
+
 # Changelog
 
 ## 0.4.0 — Unattended local service

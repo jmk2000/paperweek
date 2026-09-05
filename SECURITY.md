@@ -1,4 +1,4 @@
-# Security and privacy — v0.4
+# Security and privacy — v0.5
 
 This is an experimental **single-household LAN/VPN** service, not an audited public multi-tenant
 platform. The backend holds private calendar data and Google refresh credentials. Keep it behind
@@ -42,8 +42,8 @@ pointed at the source root as a substitute for the authenticated backend.
 
 ## Private calendar storage and display masking
 
-The SQLite cache and settings are **not encrypted**, apart from the Google-token blob and OAuth
-verifier. Protect its volume, filesystem and backups accordingly; consider host disk encryption.
+The SQLite cache and settings are **not encrypted**, apart from the Google-token blob, OAuth
+verifier, subscription URLs and raw subscription payloads. Protect its volume, filesystem and backups accordingly; consider host disk encryption.
 Removing a calendar clears its active cache windows, but does not promise forensic erasure from
 SQLite free pages, snapshots or old backups. Rotation/retention of backups is the operator's job.
 
@@ -81,7 +81,7 @@ Restoring old backups may restore previously valid session records, so review de
 ## Google disconnect and provider revocation
 
 The administration **Disconnect server** action removes local saved Google credentials and active
-cached events. It does not automatically revoke the whole Google application grant, which may also
+Google cached events; independent iCalendar sources are retained. It does not automatically revoke the whole Google application grant, which may also
 be used by another deployment. To withdraw permission at Google as well, remove the application's
 access through your Google Account's third-party connections controls. This is important on
 retirement/compromise. Cached copies/backups/device data must be removed separately as appropriate.
@@ -89,6 +89,30 @@ retirement/compromise. Cached copies/backups/device data must be removed separat
 A permanent revoked/invalid grant is reported rather than silently replaced with an empty calendar.
 External OAuth apps in Testing may require reconnection after seven days. Administrator/provider
 restrictions can also prevent linking; review Google's current policies for your Workspace project.
+
+## Subscribed calendar security
+
+Only an administrator can add/edit/preview sources. URLs are write-only, excluded from layout
+exports, encrypted at rest and never included in display responses or errors. The fetch worker
+has no inherited Google credentials. Google and iCalendar adapters never share auth headers.
+Feed queries may contain bearer secrets; do not include real URLs in screenshots, source labels,
+issues or diagnostic logs. The private admin preview intentionally shows original event text.
+
+Network policy accepts public HTTPS on port 443; DNS answers are vetted and connections pinned
+to those numerical addresses while TLS checks the original hostname. Redirects are limited and
+revalidated. Loopback/LAN/link-local/reserved targets, non-HTTPS redirects, embedded passwords and
+nonstandard ports are blocked. Environment proxies and automatic cookie/auth forwarding are not
+used. This is intentionally not an internal CalDAV adapter or generic URL-fetching proxy.
+
+Feed bytes, decompression, component/occurrence counts, recursion, subprocess CPU/memory and wall
+clock are bounded. Parse errors do not replace complete event caches. Subprocess resource limits
+are **not** a security sandbox: the server user and host still require normal protection. The
+parser does not execute HTML, alarms or attachments and does not dereference event URLs.
+
+Raw feeds and URL secrets are encrypted; normalised display-event caches remain plaintext like
+Google cache records. Deleting a source removes its active records but cannot erase old backups.
+Shared layout exports omit sources; a complete recovery requires the database and matching key.
+Local tests use fake network transports and synthetic calendars, not real rota providers.
 
 ## Validation and reporting
 

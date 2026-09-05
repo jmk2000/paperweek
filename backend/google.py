@@ -132,7 +132,7 @@ class Google:
             self.store.set('google_status', 'connected')
             self.store.set('google_generation', self.generation)
             self.store.delete('calendar_choices')
-            self.store.execute('DELETE FROM windows')
+            self.store.clear_google_windows()
             self.store.delete('oauth_notice')
 
     async def access_token(self, force=False):
@@ -235,5 +235,5 @@ class Google:
             self.store.delete('google_token')
             self.store.set('google_status', 'disconnected')
             self.store.delete('calendar_choices')
-            self.store.execute('DELETE FROM windows')
+            self.store.clear_google_windows()
             self.store.execute('DELETE FROM oauth_states')

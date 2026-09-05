@@ -18,7 +18,7 @@ def package(backend: str) -> Path:
     for name in binaries:
         if not (source/name).is_file(): raise SystemExit(f'Missing {source/name}; build {backend} first.')
         shutil.copy2(source/name,out/name)
-    (out/'build-info.json').write_text(json.dumps({'version':'0.4.0','backend':backend},indent=2)+'\n')
+    (out/'build-info.json').write_text(json.dumps({'version':'0.5.0','backend':backend},indent=2)+'\n')
     (out/'.nojekyll').write_text('')
     # Licence text is public metadata, not a household setting. Do not copy any
     # font file or other unreviewed build asset into the distribution.

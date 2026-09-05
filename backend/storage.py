@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import sqlite3
 import threading
+import secrets
 from cryptography.fernet import Fernet, InvalidToken
 from .settings import DisplayConfig
 
@@ -25,6 +26,9 @@ class Store:
         self.db.execute('PRAGMA foreign_keys=ON')
         self.db.execute('PRAGMA busy_timeout=15000')
         self.db.executescript('''
+            CREATE TABLE IF NOT EXISTS sources(
+                id TEXT PRIMARY KEY, config TEXT NOT NULL, revision INTEGER NOT NULL);
+
             CREATE TABLE IF NOT EXISTS kv(key TEXT PRIMARY KEY, value TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS sessions(
                 digest TEXT PRIMARY KEY, role TEXT NOT NULL, label TEXT NOT NULL,
@@ -56,10 +60,14 @@ class Store:
         if self.get('config') is None:
             self.set('config', DisplayConfig().model_dump())
             self.set('config_revision', 1)
-        if self.get('schema_version', 1) != 1:
+        if self.get('schema_version', 1) not in (1, 2):
             self.close()
             raise ValueError('Unsupported database schema. Do not downgrade without a backup.')
-        self.set('schema_version', 1)
+        # Non-destructive v0.4 migration; old sessions, token and cache survive.
+        columns = {r['name'] for r in self.rows('PRAGMA table_info(windows)')}
+        if 'warnings' not in columns:
+            self.execute('ALTER TABLE windows ADD COLUMN warnings TEXT')
+        self.set('schema_version', 2)
 
     def execute(self, query, args=()):
         with self.lock, self.db:
@@ -100,7 +108,13 @@ class Store:
                 raise ValueError('Settings changed in another browser. Reload before saving.')
             self.db.execute('UPDATE kv SET value=? WHERE key=?', (dumps(config.model_dump()), 'config'))
             self.db.execute('UPDATE kv SET value=? WHERE key=?', (dumps(current + 1), 'config_revision'))
-            ids = [m.calendarId for m in config.members if m.calendarId]
+            from .sources import effective_sources
+            keys = {m.key for m in config.members}
+            # Remove orphan sources, including encrypted URL/raw-feed storage.
+            for source in self.sources():
+                if source['member'] not in keys:
+                    self._delete_source(source['id'])
+            ids = [source['id'] for source in effective_sources(self, config)]
             if config.source != 'google' or not ids:
                 self.db.execute('DELETE FROM windows')
             else:
@@ -108,6 +122,70 @@ class Store:
                 self.db.execute(f'DELETE FROM windows WHERE zone<>? OR calendar NOT IN ({marks})', (config.timezone, *ids))
                 self.db.execute('UPDATE windows SET next_at=0')
         return current + 1
+
+    def sources(self):
+        return [dict(json.loads(r['config']), id=r['id'], revision=r['revision'],
+                     hasUrl=bool(self.get('source-secret:'+r['id'])))
+                for r in self.rows('SELECT * FROM sources ORDER BY rowid')]
+
+    def source(self, sid):
+        return next((s for s in self.sources() if s['id'] == sid), None)
+
+    def save_source(self, source, sid=None, expected_revision=None):
+        from .sources import PREFIX
+        with self.lock, self.db:
+            old = self.source(sid) if sid else None
+            if sid and not old:
+                raise ValueError('Calendar source no longer exists.')
+            if old and expected_revision != old['revision']:
+                raise ValueError('Source changed in another browser. Reload before saving.')
+            if not sid and len(self.sources()) >= 24:
+                raise ValueError('Up to 24 additional sources are supported.')
+            sid = sid or secrets.token_hex(12)
+            if source.kind == 'ical' and not source.url and not (old and old['kind']=='ical' and old['hasUrl']):
+                raise ValueError('Enter the private subscription URL for a new iCalendar source.')
+            revision = (old['revision']+1) if old else 1
+            encoded = dumps(source.safe())
+            self.db.execute('INSERT INTO sources VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET config=excluded.config,revision=excluded.revision', (sid, encoded, revision))
+            if source.url:
+                encrypted = self.cipher.encrypt(dumps({'url':source.url}).encode()).decode()
+                self.db.execute('INSERT INTO kv VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value', ('source-secret:'+sid, dumps(encrypted)))
+            if source.kind != 'ical':
+                self.db.execute('DELETE FROM kv WHERE key=?', ('source-secret:'+sid,))
+            # Changed rules, owner, URL or enabled status invalidate this source's
+            # projection, not other calendars or the Google authorisation.
+            self.db.execute('DELETE FROM kv WHERE key=?', ('source-cache:'+sid,))
+            self.db.execute('DELETE FROM windows WHERE calendar=?', (PREFIX+sid,))
+            self._bump_config()
+        return self.source(sid)
+
+    def _bump_config(self):
+        revision = self.get('config_revision', 1)+1
+        self.db.execute('UPDATE kv SET value=? WHERE key=?', (dumps(revision), 'config_revision'))
+
+    def _delete_source(self, sid):
+        from .sources import PREFIX
+        self.db.execute('DELETE FROM sources WHERE id=?', (sid,))
+        self.db.execute('DELETE FROM kv WHERE key IN (?,?)', ('source-secret:'+sid, 'source-cache:'+sid))
+        self.db.execute('DELETE FROM windows WHERE calendar=?', (PREFIX+sid,))
+
+    def delete_source(self, sid, expected_revision):
+        with self.lock, self.db:
+            old = self.source(sid)
+            if not old or old['revision'] != expected_revision:
+                raise ValueError('Source changed or no longer exists. Reload before deleting.')
+            self._delete_source(sid)
+            self._bump_config()
+
+    def clear_google_windows(self):
+        """An OAuth account switch never discards independent iCalendar data."""
+        from .sources import PREFIX
+        ids = [PREFIX+s['id'] for s in self.sources() if s['kind']=='ical']
+        if not ids:
+            self.execute('DELETE FROM windows')
+        else:
+            marks = ','.join('?' for _ in ids)
+            self.execute(f'DELETE FROM windows WHERE calendar NOT IN ({marks})', ids)
 
     def consume(self, table, digest, now, session=None):
         if table not in ('pairs', 'oauth_states'):

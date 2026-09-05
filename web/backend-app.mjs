@@ -62,7 +62,9 @@ async function useSnapshot(snapshot,offline=false){
   const stamp=snapshot.lastSuccess?new Date(snapshot.lastSuccess*1000).toLocaleString():'';
   if(offline)say('SERVER UNREACHABLE · Showing the saved view; it may be out of date.',true);
   else if(config.source==='demo')say('Invented demo events · Configure Google calendars in Administration');
-  else if(stale)say(`${snapshot.connection==='connected'?'Sync delayed': 'Google '+snapshot.connection.replaceAll('_',' ')} · Last complete Google sync ${stamp||'unavailable'}`,true);
+  else if(stale)say(`${snapshot.connection==='connected'?'Source sync delayed': 'Google '+snapshot.connection.replaceAll('_',' ')} · Last complete source sync ${stamp||'unavailable'}`,true);
+  else if(snapshot.warnings)say('Source needs review: some rota entries were not classified, or the feed reported a warning. Check administration.',true);
+  else if(snapshot.unmappedMembers?.length)say('Some configured people have no linked live source. Check administration.',true);
   else say(`Google synced ${stamp} · Server checks Google every ${config.pollMinutes} min`);
 }
 async function load(){
@@ -78,7 +80,7 @@ async function load(){
     if(snapshot.revision!==record.revision||snapshot.dataEpoch!==record.dataEpoch)throw new Error('Settings changed while loading. Retrying shortly.');
     if(!snapshot.ready){
       retryMs=3000;const problems=snapshot.coverage.filter(c=>!c.ready).length;
-      throw new Error(snapshot.connection==='connected'?`Fetching ${problems} calendar/month cache window(s). This can take a minute on the first sync.`:`Google ${snapshot.connection.replaceAll('_',' ')}. An administrator needs to connect Google.`);
+      throw new Error(snapshot.connection==='connected'?`Waiting for ${problems} source/month window(s). Initial loading can take a minute; check source health in administration if this persists.`:`Google ${snapshot.connection.replaceAll('_',' ')}. An administrator needs to connect Google.`);
     }
     snapshot.anchor=anchor;snapshot.month=month;
     await useSnapshot(snapshot);

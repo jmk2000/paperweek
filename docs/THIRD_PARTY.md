@@ -29,7 +29,7 @@ References: [LVGL licence](https://github.com/lvgl/lvgl/blob/v9.3.0/LICENCE.txt)
 [Emscripten licence](https://github.com/emscripten-core/emscripten/blob/main/LICENSE),
 [Google API services policy](https://developers.google.com/terms/api-services-user-data-policy).
 
-## Server dependencies (v0.4)
+## Server dependencies (v0.5)
 
 The container installs pinned FastAPI (MIT), Starlette (BSD-3-Clause), Pydantic (MIT), HTTPX
 (BSD-3-Clause), Uvicorn (BSD-3-Clause), cryptography (Apache-2.0/BSD-3-Clause) and OAuthlib
@@ -41,3 +41,8 @@ constructs/parses server OAuth messages and HTTPX communicates with Google endpo
 
 Version pins describe the tested environment, not a claim of latest release or security audit.
 Review/upkeep of dependencies and base-image digests remains necessary.
+
+The iCalendar reader uses the installed python-dateutil 2.9.0.post0 distribution for recurrence
+and embedded VTIMEZONE processing, with its Apache-2.0/BSD-3-Clause licence notices and the six
+transitive dependency. These are not vendored into this source ZIP. Retain distribution licences
+when redistributing the Docker image. RFC 5545 is the format specification, not a bundled library.

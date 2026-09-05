@@ -1,7 +1,8 @@
 """ASGI application: authenticated display API, admin API and public app shell."""
 from __future__ import annotations
 from contextlib import asynccontextmanager
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 import hashlib
 import json
 import logging
@@ -14,14 +15,16 @@ import httpx
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from . import __version__
 from .settings import DisplayConfig, Settings
 from .storage import Store, dumps
 from .security import COOKIE, Limiter, digest, password_ok, session, new_session
 from .google import Google, CalendarError
-from .sync import Synchronizer
+from .sync import Synchronizer, validate_raw, intersects
+from .sources import SourceInput, classify, PREFIX
+from .ical import ICalendar, isolated
 
 PUBLIC_ASSETS = {
     'server.html', 'admin.html', 'backend-app.mjs', 'admin.mjs', 'backend-client.mjs',
@@ -55,7 +58,26 @@ class ConfigUpdate(Body):
     config: DisplayConfig
 
 
-def create_app(settings: Settings | None = None, transport=None):
+class SourceUpdate(Body):
+    revision: int = Field(ge=1)
+    source: SourceInput
+
+
+class SourceDelete(Body):
+    revision: int = Field(ge=1)
+
+
+class SourcePreview(Body):
+    @field_validator('first', mode='before')
+    @classmethod
+    def parse_date(cls, value):
+        return date.fromisoformat(value) if isinstance(value, str) else value
+
+    first: date
+    days: int = Field(default=31, ge=1, le=62)
+
+
+def create_app(settings: Settings | None = None, transport=None, feed_runner=None):
     settings = settings or Settings.from_env()
     os.umask(0o077)
 
@@ -65,7 +87,8 @@ def create_app(settings: Settings | None = None, transport=None):
         app.state.http = httpx.AsyncClient(timeout=httpx.Timeout(20, connect=10), follow_redirects=False,
                                           transport=transport, trust_env=False)
         app.state.google = Google(app.state.store, settings, app.state.http)
-        app.state.sync = Synchronizer(app.state.store, app.state.google, settings)
+        app.state.ical = ICalendar(app.state.store, runner=feed_runner or isolated)
+        app.state.sync = Synchronizer(app.state.store, app.state.google, settings, ical=app.state.ical)
         app.state.limiter = Limiter()
         # A configured client change requires explicit relinking, not a loop of
         # invalid refresh requests using credentials from a previous deployment.
@@ -223,14 +246,108 @@ def create_app(settings: Settings | None = None, transport=None):
         if body.config.source == 'google':
             choices = {c['id'] for c in app.state.store.get('calendar_choices', [])}
             old = {m.calendarId for m in app.state.store.config().members}
-            if any(m.calendarId not in choices | old for m in body.config.members):
-                raise HTTPException(422, 'Load calendar choices and map every calendar before saving.')
+            if any(m.calendarId and m.calendarId not in choices | old for m in body.config.members):
+                raise HTTPException(422, 'Load Google choices before using a new Google mapping. iCalendar-only members may leave the Google mapping empty.')
         try:
             revision = app.state.store.save_config(body.config, body.revision)
         except ValueError as e:
             raise HTTPException(409, str(e)) from None
         app.state.sync.wake.set()
         return {'revision':revision, 'config':body.config.model_dump()}
+
+    def check_source(source, existing=None):
+        config = app.state.store.config()
+        if source.member not in {m.key for m in config.members}:
+            raise HTTPException(422, 'Save the person in shared settings before attaching a source.')
+        if source.mode == 'rota' and source.member != config.rotaMember:
+            raise HTTPException(422, 'Select this person for the rota band in shared settings first.')
+        if source.kind == 'google':
+            choices = {c['id'] for c in app.state.store.get('calendar_choices', [])}
+            if source.calendarId not in choices and not (existing and existing['calendarId']==source.calendarId):
+                raise HTTPException(422, 'Load Google calendar choices before adding a Google source.')
+            if any(m.calendarId == source.calendarId for m in config.members):
+                raise HTTPException(422, 'This Google calendar is already a primary mapping. Use a different source.')
+
+    @app.get('/api/admin/sources')
+    def list_sources(request: Request):
+        session(request, admin=True)
+        return {'sources':app.state.store.sources()}
+
+    @app.post('/api/admin/sources')
+    def add_source(body: SourceInput, request: Request):
+        session(request, admin=True)
+        limited(request, 'edit-source', 60, 3600)
+        check_source(body)
+        try:
+            saved = app.state.store.save_source(body)
+        except ValueError as e:
+            raise HTTPException(422, str(e)) from None
+        app.state.sync.wake.set()
+        return {'source':saved}
+
+    @app.put('/api/admin/sources/{source_id}')
+    def edit_source(source_id: str, body: SourceUpdate, request: Request):
+        session(request, admin=True)
+        limited(request, 'edit-source', 60, 3600)
+        old = app.state.store.source(source_id)
+        check_source(body.source, old)
+        try:
+            saved = app.state.store.save_source(body.source, source_id, body.revision)
+        except ValueError as e:
+            raise HTTPException(409, str(e)) from None
+        app.state.sync.wake.set()
+        return {'source':saved}
+
+    @app.delete('/api/admin/sources/{source_id}')
+    def remove_source(source_id: str, body: SourceDelete, request: Request):
+        session(request, admin=True)
+        try:
+            app.state.store.delete_source(source_id, body.revision)
+        except ValueError as e:
+            raise HTTPException(409, str(e)) from None
+        return {'ok':True}
+
+    @app.post('/api/admin/sources/{source_id}/preview')
+    async def preview_source(source_id: str, body: SourcePreview, request: Request):
+        session(request, admin=True)
+        limited(request, 'preview-source', 6, 60)
+        source = app.state.store.source(source_id)
+        if not source:
+            raise HTTPException(404, 'Source not found.')
+        config = app.state.store.config()
+        if abs((body.first-date.today()).days)>800:
+            raise HTTPException(422, 'Preview within two years of today.')
+        z = ZoneInfo(config.timezone)
+        start = datetime.combine(body.first,datetime.min.time(),z).isoformat()
+        stop = datetime.combine(body.first+timedelta(days=body.days),datetime.min.time(),z).isoformat()
+        warnings = []
+        if source['kind']=='ical':
+            result = await app.state.ical.events({**source,'id':PREFIX+source_id},start,stop,config.timezone,force=True)
+            raw, warnings = result['items'], result['warnings']
+        else:
+            raw = await app.state.google.events(source['calendarId'],start,stop,config.timezone)
+        latest = app.state.store.source(source_id)
+        if not latest or latest['revision'] != source['revision']:
+            raise HTTPException(409, 'Source changed during preview. Reload and retry.')
+        rows, counts = [], {}
+        for r in raw:
+            cleaned = validate_raw(r, False)
+            if cleaned is None or not intersects(cleaned,body.first,body.days,config.timezone):
+                continue
+            try:
+                mapped, action = classify(cleaned, source)
+                detail = ''
+            except ValueError as e:
+                action, detail = 'invalid', str(e)
+            counts[action] = counts.get(action, 0)+1
+            if len(rows)<100:
+                rows.append({'title':cleaned['summary'],'start':cleaned['start'],'end':cleaned['end'],
+                             'categories':cleaned.get('categories',[]),'interpretation':action,'detail':detail})
+        if counts.get('unknown'):
+            warnings = [*warnings, 'Unmatched rota entries remain unknown. Review the rules; do not assume that every feed event is a shift.']
+        return {'items':rows,'counts':counts,'warnings':warnings,'total':sum(counts.values()),
+                'truncated':sum(counts.values())>len(rows),'sourceRevision':source['revision'],
+                'notice':'Private administration preview. No entries are written to Google or the rota provider.'}
 
     @app.get('/api/admin/status')
     def status(request: Request):
@@ -280,7 +397,7 @@ def create_app(settings: Settings | None = None, transport=None):
     async def disconnect(request: Request):
         session(request, admin=True)
         await app.state.google.disconnect()
-        return {'ok':True, 'message':'Server credentials and cached events removed. Google consent was not revoked.'}
+        return {'ok':True, 'message':'Google credentials and Google cache removed; independent iCalendar sources are unchanged. Google consent was not revoked.'}
 
     @app.get('/api/display/config')
     def display_config(request: Request):

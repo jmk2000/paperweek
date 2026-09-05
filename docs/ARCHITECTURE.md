@@ -1,9 +1,18 @@
-# v0.4 architecture addition
+# v0.5 backend and multiple-source architecture
 
 The new `backend/` holds private OAuth, SQLite storage, settings, pairing and scheduled sync. `web/backend-app.mjs` replaces direct browser Google calls with the authenticated local API, while reusing the C/WASM renderer and event/timezone adapter. `web/admin.mjs` configures the service. Docker compiles the default browser-font preview.
 
 The shared C `core/` and `ui/` remain the display implementation; the backend does not introduce a separate HTML calendar or duplicate the rota layout. Provider records are normalised and privacy-filtered before transit. An ESP32 network/authentication and panel adapter is future work.
 
+The `sources` table associates up to 24 additional Google/iCalendar sources with existing member
+keys. URL/raw-feed storage is encrypted separately. `feed_http.py` vets and pins public HTTPS
+destinations; `ical_parser.py` normalises bounded VEVENT recurrence using dateutil;
+`ical_worker.py` runs downloads/parsing under resource/time limits. No external URL contained inside
+an event is dereferenced. These processes are robustness boundaries, not an OS security sandbox.
+`sources.py` applies explicit first-match rota mappings before existing C status/layout rules.
+The synchroniser isolates caches by opaque source ID and merges records by person, not new column.
+
+Read [CALENDAR_SOURCES.md](CALENDAR_SOURCES.md) for supported iCalendar forms and limitations.
 Read [BACKEND.md](BACKEND.md) for the current service flow. The rest of this file describes the shared core and the older standalone adapters.
 
 ---
@@ -42,7 +51,7 @@ records keep their exclusive end dates. This model avoids treating a DST day as 
 The adapter validates actual start/end ordering, including fall-back cases where local wall time
 moves backwards. The C core handles midnight/overnight overlap without consulting a host timezone.
 
-Limits: six calendars, 2,048 expanded records per query, 42 visible dates and six entries per day
+Limits: six people/display groups, 2,048 expanded records per query, 42 visible dates and six entries per day
 in week view. Month density is five, four or three entries per cell for four-, five- or six-row
 months. Excess visible entries become an explicit overflow count. Exceeding the global event
 limit is an error, not a silently incomplete calendar. One tracked rota is supported.

@@ -28,6 +28,7 @@ from backend.settings import Settings
 from backend.security import password_hash
 from cryptography.fernet import Fernet
 from backend.google import SCOPES
+from backend.ical_parser import parse_calendar
 
 PASSWORD='component test administrator password'
 
@@ -64,7 +65,7 @@ def mount(page, entry, client, origin):
     globalThis.__settings=new Map();
     Object.defineProperty(globalThis,'localStorage',{configurable:true,value:{getItem:k=>__settings.get(k)||null,setItem:(k,v)=>__settings.set(k,v),removeItem:k=>__settings.delete(k)}});
     globalThis.fetch=async(path,opts={})=>{
-      if(String(path).endsWith('build-info.json'))return Response.json({backend:'preview',version:'0.4.0'});
+      if(String(path).endsWith('build-info.json'))return Response.json({backend:'preview',version:'0.5.0'});
       if(String(path).endsWith('paperweek-preview.wasm'))return new Response(Uint8Array.from(atob('@WASM@'),c=>c.charCodeAt(0)));
       const r=await python_api({path,opts:{method:opts.method,headers:opts.headers,body:opts.body}});
       return new Response(r.text,{status:r.status,headers:{'content-type':'application/json'}});
@@ -97,7 +98,12 @@ def main():
                 return httpx.Response(200,json={'items':[{'id':f'fixture-{i}','summary':f'Calendar {i}','accessRole':'owner'} for i in range(1,5)]})
             today=date.today()
             return httpx.Response(200,json={'items':[{'id':'fixture-event','iCalUID':'fixture-uid','summary':state['title'],'start':{'date':today.isoformat()},'end':{'date':(today+timedelta(days=1)).isoformat()}}]})
-        app=create_app(settings,httpx.MockTransport(fake_google))
+        async def fake_feed(job):
+            if job['action']=='fetch':
+                data=('BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\nUID:rota-fixture\nDTSTART;VALUE=DATE:'+date.today().strftime('%Y%m%d')+'\nSUMMARY:Standby\nEND:VEVENT\nEND:VCALENDAR').encode()
+                return {'data':base64.b64encode(data).decode(),'etag':'"demo"','modified':'','notModified':False}
+            return parse_calendar(base64.b64decode(job['data']),job['start'],job['stop'],job['fallback'],job['zone'])
+        app=create_app(settings,httpx.MockTransport(fake_google),feed_runner=fake_feed)
         server=uvicorn.Server(uvicorn.Config(app,host='127.0.0.1',port=port,log_level='warning',access_log=False))
         thread=threading.Thread(target=server.run,daemon=True);thread.start()
         deadline=time.time()+10
@@ -115,12 +121,47 @@ def main():
                 page.locator('#admin-content').wait_for(state='visible')
                 page.wait_for_function("document.querySelectorAll('.member-card').length===4")
                 check(page.locator('.member-card').count()==4,'four generic mappings')
+                check(page.locator('#add-member').inner_text()=='Add person','people are separate from sources')
+                page.locator('#add-member').click()
+                check(page.locator('.member-card').count()==5,'adding a fifth person creates one display slot')
+                page.locator('.member-card').last.locator('.remove-member').click()
+                check(page.locator('.member-card').count()==4,'removing unsaved extra person restores four slots')
                 check('disconnected' in page.locator('#google-state').inner_text(),'no misleading Google connection')
                 page.locator('[name="title"]').fill('Our household calendar')
-                page.locator('[name="timezone"]').fill('Europe/London')
+                page.locator('#config-form [name="timezone"]').fill('Europe/London')
                 page.locator('#config-form button[type="submit"]').click()
                 page.wait_for_function("document.querySelector('#save-state').textContent.startsWith('Saved')")
                 check(admin_client.get('/api/admin/config').json()['config']['timezone']=='Europe/London','shared config persisted through HTTP')
+                # Additional source form uses a fake feed transport but real
+                # parser, API, encrypted storage, preview and rule classification.
+                page.locator('.member-card').nth(1).locator('.attach-source').click()
+                check(page.locator('#source-form [name="member"]').input_value()=='member-2','attach-source button keeps the same owner')
+                page.locator('#source-form [name="label"]').fill('Work rota')
+                page.locator('#source-form [name="member"]').select_option('member-2')
+                page.locator('#source-form [name="mode"]').select_option('rota')
+                page.locator('#source-form [name="timezone"]').fill('Europe/London')
+                page.locator('#source-form [name="url"]').fill('https://calendar.example.net/fixture.ics?key=not-a-secret')
+                page.locator('#add-rota-rule').click()
+                page.locator('.rota-rule [data-field="text"]').fill('Standby')
+                page.locator('.rota-rule [data-field="action"]').select_option('oncall')
+                page.locator('#source-form button[type="submit"]').click()
+                page.wait_for_function("document.querySelector('#source-state').textContent.includes('Saved')")
+                check('paused' in page.locator('#source-state').inner_text(),'new subscription paused until reviewed')
+                check(page.locator('#source-form [name="url"]').input_value()=='','saved private URL never prefilled')
+                source_rows=admin_client.get('/api/admin/sources').json()['sources']
+                check(source_rows[0]['hasUrl'] and 'url' not in source_rows[0],'admin source response omits secret URL')
+                page.locator('#preview-source').click()
+                page.wait_for_function("document.querySelector('#source-preview-state').textContent.includes('oncall: 1')")
+                check('Standby' in page.locator('#source-preview-results').inner_text(),'preview shows original and interpreted feed entries')
+                page.locator('#source-form [name="enabled"]').check()
+                page.locator('#source-form button[type="submit"]').click()
+                page.wait_for_function("document.querySelector('#source-state').textContent.includes('enabled')")
+                check(admin_client.get('/api/admin/sources').json()['sources'][0]['enabled'],'reviewed subscription enabled')
+                if args.screenshots:
+                    args.screenshots.mkdir(parents=True,exist_ok=True)
+                    page.locator('#preview-source').click()
+                    page.wait_for_function("document.querySelector('#source-preview-state').textContent.includes('oncall: 1')")
+                    page.locator('#source-panel').screenshot(path=str(args.screenshots/'sources.png'))
                 page.locator('#pair-create button').click()
                 page.wait_for_function("document.querySelector('#pair-code-output').textContent.length>0")
                 code=page.locator('#pair-code-output').inner_text()
@@ -161,6 +202,13 @@ def main():
                 tablet.locator('[data-nav="1"]').click()
                 tablet.wait_for_function("document.querySelector('#agenda-text').textContent.includes('HTTP integration fixture event')",timeout=20000)
                 check(tablet.locator('#source-badge').inner_text()=='SERVER','Google data arrives via backend, not demo')
+                status=admin_client.get('/api/admin/status').json()
+                check(any(w['kind']=='ical' and w['success'] for w in status['windows']),'iCalendar cache ready alongside Google')
+                day=date.today().isoformat()
+                snapshot=display_client.get('/api/display/snapshot',params={'first':day,'days':1}).json()
+                check(any(e['summary']=='[PW:ONCALL]' for b in snapshot.get('batches',[]) for e in b['items']),'rota feed becomes status marker in same shared renderer')
+                owner=next(b for b in snapshot['batches'] if b['member']=='member-2')
+                check({e['summary'] for e in owner['items']}=={'HTTP integration fixture event','[PW:ONCALL]'},'Google appointments and subscribed rota coexist under one person')
                 token=app.state.store.get_secret('google_token');token['expires_at']=0;app.state.store.set_secret('google_token',token)
                 state['title']='Updated after automatic token refresh'
                 admin_client.post('/api/admin/sync',json={},headers=headers)

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(paperweek VERSION 0.4.0 LANGUAGES C CXX)
+project(paperweek VERSION 0.5.0 LANGUAGES C CXX)
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 option(PW_BUILD_LVGL "Build the actual LVGL WebAssembly frontend" OFF)
