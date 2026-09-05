@@ -1,3 +1,9 @@
+# Google setup: v0.4 server versus legacy browser
+
+For the unattended Docker service, use [BACKEND.md, Google configuration](BACKEND.md#2-google-configuration). It needs a **Web application client secret on the server** and the exact **Authorized redirect URI** `/api/oauth/callback`. The browser-only instructions below are retained for the standalone v0.3 frontend and are not the v0.4 server setup.
+
+---
+
 # Google Calendar and Workspace setup
 
 This browser build uses Google Identity Services' **token model**, with a popup triggered

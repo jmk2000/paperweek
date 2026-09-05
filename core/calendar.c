@@ -182,7 +182,12 @@ bool pw_build_view(pw_view *v,const pw_config *c,const pw_event *events,unsigned
     }
     if(conflicts)snprintf(v->footer,sizeof v->footer,"CHECK ROTA / Working and off-duty overlap on %u date(s).",conflicts);
     else if(next){int y;unsigned m,d;pw_date_parts(next->start_day,&y,&m,&d);
-        snprintf(v->footer,sizeof v->footer,"NEXT IN LOADED RANGE / %s %u %s %02d:%02d / %s: %s",weekdays[pw_weekday(next->start_day)],d,shortmonths[m-1],next->start_second/3600,next->start_second/60%60,c->calendars[next->calendar].name,next->title);
+        /* Bounded temporaries keep native compiler checks and our small WASM
+         * formatter in agreement: the latter deliberately has no %.Ns support. */
+        char owner[33],title[151];
+        copy(owner,sizeof owner,c->calendars[next->calendar].name);
+        copy(title,sizeof title,next->title);
+        snprintf(v->footer,sizeof v->footer,"NEXT IN LOADED RANGE / %s %u %s %02d:%02d / %s: %s",weekdays[pw_weekday(next->start_day)],d,shortmonths[m-1],next->start_second/3600,next->start_second/60%60,owner,title);
     } else copy(v->footer,sizeof v->footer,"No upcoming timed events in the loaded range.");
     return true;
 }

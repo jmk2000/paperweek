@@ -5,7 +5,7 @@ import re
 import subprocess
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
-SKIP={'build','.git','dist-preview','dist-lvgl','.venv','node_modules','__pycache__'}
+SKIP={'build','.git','dist-preview','dist-lvgl','.venv','node_modules','__pycache__','.pytest_cache'}
 PATTERNS={
  'private key':re.compile(r'-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----'),
  'Google refresh token':re.compile(r'1//[A-Za-z0-9_-]{30,}'),

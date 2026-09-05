@@ -1,4 +1,4 @@
-export const VERSION = '0.3.0';
+export const VERSION = '0.4.0';
 export const STORAGE_KEY = 'paperweek.settings.v3';
 export const COLOURS = {black: 0, red: 2, yellow: 3, blue: 4, green: 5};
 export function defaults() {

@@ -1,0 +1,50 @@
+name: Backend and Docker
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install build and test dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y clang lld cmake
+          python -m pip install -r backend/requirements-dev.txt
+      - name: Test server, configuration, backup and portable display
+        run: |
+          python -m pytest tests/backend -q
+          bash tools/build-preview.sh
+          node --test tests/*.test.mjs
+          cmake -S . -B build/core -DCMAKE_BUILD_TYPE=Release
+          cmake --build build/core --parallel 4
+          ctest --test-dir build/core --output-on-failure
+          python tools/privacy_check.py --tracked
+      - name: Actual clean-source Docker build
+        run: docker build --pull -t paperweek-ci .
+      - name: Start container with private disposable demo configuration
+        run: |
+          python tools/configure_backend.py --public-url http://127.0.0.1:8080 > /tmp/paperweek-setup.private.txt
+          sed -i 's/image: paperweek-server:local/image: paperweek-ci/' compose.yml
+          docker compose -f compose.yml -f compose.lan.yml up -d --no-build
+          for n in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8080/healthz > /dev/null; then break; fi
+            sleep 2
+          done
+          python tools/backend_smoke.py --url http://127.0.0.1:8080
+      - name: Stop disposable test service
+        if: always()
+        run: |
+          if test -f .env.private; then
+            docker compose -f compose.yml -f compose.lan.yml down -v
+          fi
+          rm -f .env.private .env /tmp/paperweek-setup.private.txt

@@ -1,11 +1,13 @@
 {
   "name": "paperweek",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "description": "A configurable shared calendar with a portable C display core.",
   "license": "MIT",
-  "engines": {"node": ">=22"},
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "test": "node --test tests/*.test.mjs",
     "build:preview": "bash tools/build-preview.sh",

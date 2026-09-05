@@ -16,7 +16,7 @@ Emscripten is an external build tool with its own LLVM/MIT-related licensing; ge
 code may have associated notices. Consult the exact toolchain distribution. The project pins
 Emscripten 4.0.14 for repeatability, not because it is claimed to be the latest release.
 
-Google Identity Services is loaded from Google's official endpoint only after explicit preparation
+The **legacy standalone browser adapter** loads Google Identity Services from Google's official endpoint only after explicit preparation
 or connection. Google services and APIs have their own terms and data policies. No Google SDK source
 is vendored here. The REST adapter is original application code.
 
@@ -28,3 +28,16 @@ References: [LVGL licence](https://github.com/lvgl/lvgl/blob/v9.3.0/LICENCE.txt)
 [Montserrat](https://github.com/JulietaUla/Montserrat),
 [Emscripten licence](https://github.com/emscripten-core/emscripten/blob/main/LICENSE),
 [Google API services policy](https://developers.google.com/terms/api-services-user-data-policy).
+
+## Server dependencies (v0.4)
+
+The container installs pinned FastAPI (MIT), Starlette (BSD-3-Clause), Pydantic (MIT), HTTPX
+(BSD-3-Clause), Uvicorn (BSD-3-Clause), cryptography (Apache-2.0/BSD-3-Clause) and OAuthlib
+(BSD-3-Clause), along with their transitive dependencies. These are external distributions, not
+source copied into this repository. Preserve their installed distribution notices/licences when
+redistributing an image. Python and Debian have their own licensing. No model or GPU runtime is
+bundled. The backend does not load Google's JavaScript SDK in the display/admin pages; OAuthlib
+constructs/parses server OAuth messages and HTTPX communicates with Google endpoints.
+
+Version pins describe the tested environment, not a claim of latest release or security audit.
+Review/upkeep of dependencies and base-image digests remains necessary.

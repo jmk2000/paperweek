@@ -39,7 +39,8 @@ jobs:
           "$RUNNER_TEMP/test-venv/bin/pip" install playwright==1.57.0
           "$RUNNER_TEMP/test-venv/bin/playwright" install --with-deps chromium
       - name: Test actual HTTP-rendered LVGL frontend
-        run: "$RUNNER_TEMP/test-venv/bin/python" tools/http_smoke.py --backend lvgl
+        run: |
+          "$RUNNER_TEMP/test-venv/bin/python" tools/http_smoke.py --backend lvgl
       - uses: actions/upload-artifact@v4
         with:
           name: paperweek-lvgl-web

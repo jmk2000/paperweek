@@ -1,23 +1,31 @@
-# Choose ONE overlay: compose.npm.yml (shared Docker host) or compose.lan.yml.
+# Choose compose.npm.yml OR compose.lan.yml as an overlay.
 name: paperweek
 services:
   paperweek:
-    image: paperweek-web:local
+    image: paperweek-server:local
     build:
       context: .
       args:
-        NGINX_IMAGE: ${NGINX_IMAGE:-nginxinc/nginx-unprivileged:stable-alpine}
+        PYTHON_IMAGE: ${PYTHON_IMAGE:-python:3.12-slim-bookworm}
+    env_file:
+      - .env.private
+    environment:
+      PAPERWEEK_PUBLIC_URL: ${PAPERWEEK_PUBLIC_URL:?Run tools/configure_backend.py first}
+    volumes:
+      - paperweek-data:/data
     restart: unless-stopped
     init: true
     read_only: true
     tmpfs:
-      - /tmp:rw,noexec,nosuid,size=16m,mode=1777
+      - /tmp:rw,noexec,nosuid,size=64m,mode=1777
     cap_drop:
       - ALL
     security_opt:
       - no-new-privileges:true
-    pids_limit: 64
-    mem_limit: 128m
-    cpus: 0.50
+    pids_limit: 128
+    mem_limit: 512m
+    cpus: 1.0
     expose:
       - "8080"
+volumes:
+  paperweek-data:

@@ -1,105 +1,84 @@
 # Paperweek
 
-**Docker / Nginx Proxy Manager:** see [README-DOCKER.md](README-DOCKER.md). The hosting ZIP includes prebuilt preview assets. This is still the v0.3 browser-only application, not the planned backend.
+A configurable shared calendar for an Android tablet now and a colour e-paper display later.
+**v0.4 adds an unattended, self-hosted calendar backend.** The portable C calendar rules and
+week/month layout are retained; the tablet no longer manages Google authorisation.
 
-A configurable shared calendar for a tablet today and a colour e-paper display later.
-The calendar model, rota rules, week/month layout and button behaviour are portable C.
-The browser handles Google authorisation, timezone conversion, device settings and hosting.
+**Experimental single-household release.** The backend and compiled C/WASM preview have local
+automated tests. A real Google account, Android device, Docker image build and NPM deployment
+have not been exercised in the release environment. This is not finished ESP32 firmware.
 
-**Prototype v0.3.0 — not finished ESP32 firmware.**
+## What is included
 
-## Two rendering builds
+- Server-side Google OAuth with encrypted refresh credentials, scheduled read-only synchronisation,
+  paginated recurring-event retrieval, retry/backoff and a persistent SQLite cache.
+- A browser administration screen for shared configuration, Google connection and sync health.
+- One-use tablet pairing codes and independently revocable read-only display sessions. Google
+  credentials and calendar IDs are not sent to paired displays.
+- One to six configurable calendars; generic demo data; week/month views; previous/next/today;
+  one optional rota band; privacy masking; six-colour design palette; physical-button simulation.
+- The actual existing C model and layout compiled to WebAssembly. The supplied preview uses
+  browser fonts, **not an LVGL framebuffer**. The separate LVGL build target remains available.
+- Opt-in, bounded private offline storage for the last complete tablet view; optional wake lock,
+  full-screen controls, a service worker and a home-screen app manifest.
+- Docker Compose deployment behind an existing HTTPS reverse proxy. No GPU is needed.
 
-| Build | Reused implementation | Rendering | Status of this release |
-| --- | --- | --- | --- |
-| `preview` | Real C calendar model, layout and controls compiled to WASM | Browser Canvas text and rectangles; browser font metrics | Compiled and tested in this environment |
-| `lvgl` | The same C core and layout, plus `ui/canvas_lvgl.c` | Actual LVGL 9.3 framebuffer, compiled with Emscripten | Source/build target supplied; full dependency download and build **not verified here** |
+## Start with Docker and Nginx Proxy Manager
 
-The ready-to-host preview is **not secretly an LVGL binary**. Its header identifies it as
-“C/WASM preview · browser fonts”. It is useful immediately for data and interaction testing;
-use the LVGL build to validate LVGL's own text rasterisation. Both use the same calendar
-logic and the same C layout functions. There is no separate HTML calendar implementation.
+The image now compiles its own WASM assets: a clean Git clone is sufficient. No build output,
+credentials or household settings need committing.
 
-## Features
+1. Create a Google **Web application** OAuth client with Calendar API enabled and the two read-only
+   scopes described in [the backend guide](docs/BACKEND.md). Register the exact callback
+   `https://paperweek.example.net/api/oauth/callback`. Keep the downloaded client JSON private.
+2. In the repository, generate private runtime configuration:
 
-- One to six configurable calendars, generic demo data, unique badges and six-colour design palette.
-- Week and month views, Sunday/Monday first, previous/next/today controls and date selection.
-- One optional rota band: working, working + on-call, explicit off, unknown, or conflict.
-- Read-only Google Calendar access through Google Identity Services; recurring instances expanded by Google.
-- Privacy masking; optional cross-calendar deduplication; midnight/overnight and timezone handling.
-- Always-visible button labels or first-press help; configurable non-flashing refresh delay.
-- Frame-change hashing avoids redraws just because a poll happened.
-- Android-friendly touch buttons, full-screen request, optional screen wake lock and app manifest.
-- Settings import/export; PNG export; accessible text agenda.
+   ```sh
+   python3 tools/configure_backend.py \
+     --public-url https://paperweek.example.net \
+     --google-client /private/path/web-client.json
+   ```
 
-## Quickest start: supplied web build
+   Save the generated administrator password in your password manager. The script writes ignored,
+   permission-restricted `.env` and `.env.private` files. The public example hostname must be
+   replaced with your own LAN-resolvable HTTPS hostname. Omit `--google-client` to try demo mode first.
+3. For NPM on the same Docker engine, set `NPM_NETWORK` in `.env` to its existing network, then:
 
-The release's `paperweek-web` ZIP contains `site/`, a precompiled preview and `serve.py`.
-Extract it, open a terminal in that folder, and run:
+   ```sh
+   docker compose -f compose.yml -f compose.npm.yml up -d --build
+   ```
 
-```sh
-python3 serve.py --directory site --bind 0.0.0.0 --port 8080
-```
+   For NPM on another host/VM, use `compose.lan.yml` instead and explicitly set the guest's private
+   bind IP and port in `.env`. Restrict that port to the proxy.
+4. Point NPM at `paperweek:8080` on the shared Docker network, or at the guest IP/port. Use HTTP to
+   the container, trusted HTTPS to browsers, **Cache Assets off**, and no custom Advanced headers.
+5. Visit `/admin`, sign in, connect Google, map each calendar, choose Google as the data source, and
+   save. Existing private v0.3 settings exports can be imported. Create a pairing code, then enter
+   it at `/` on the tablet. The tablet does not need your administrator password or Google sign-in.
 
-Open `http://YOUR-MAC-LAN-IP:8080` on a tablet on the same trusted network.
-The Mac must remain running while serving the page. Stop the server with Ctrl-C.
-Use **Settings** to configure the household. Start with invented events.
+See **[complete deployment, migration and backup instructions](docs/BACKEND.md)** before upgrading.
+An old service worker can temporarily show the legacy UI: export old settings first, then visit
+`/admin` directly at the new deployment and close/reopen the old display tab.
 
-**This LAN HTTP route is for the demo.** Google browser OAuth, PWA installation and wake lock
-need HTTPS on the tablet (localhost exceptions apply only to the device itself).
-The secure deployment route below removes the always-on-Mac requirement.
-Do not open the HTML using `file://`.
+## What “unattended” means
 
-## Build from source
+Google access tokens are renewed by the backend using its refresh credential. The default Google
+poll interval is five minutes. The tablet checks the local service roughly every 20 seconds while
+visible. Unchanged calendar content does not force a display redraw. Temporary errors retain the
+last complete data and show stale status; missing cache coverage is not presented as an empty month.
 
-Requirements: Git, CMake 3.20+, Python 3.10+, Node 22+ for tests.
+The service warms the previous month, current month and next two months. Other requested periods
+within approximately two years either side are queued on demand. A first load can take a minute;
+large calendars and provider limits can take longer. All selected calendars/months must be available
+before a complete snapshot is delivered. Caches are a working copy; Google remains authoritative.
 
-### Actual LVGL / Emscripten
-
-Install ordinary command-line developer tools and CMake first. On a Mac, CMake is
-available through Homebrew (`brew install cmake`). Then:
-
-```sh
-bash tools/install-emsdk.sh
-source "$HOME/.cache/paperweek-emsdk/emsdk_env.sh"
-bash tools/build-web.sh
-python3 serve.py --directory dist-lvgl --port 8080
-```
-
-The toolchain script installs Emscripten 4.0.14 into a separate cache directory.
-The build fetches LVGL 9.3.0. Downloads require internet access. They are not bundled
-as source or font files in this repository. No personal configuration is embedded.
-
-### Dependency-light C/WASM preview
-
-Install LLVM with `clang` and `wasm-ld` on PATH, then:
-
-```sh
-bash tools/build-preview.sh
-python3 serve.py --directory dist-preview --port 8080
-```
-
-On macOS, Apple's default Clang installation may not include the WebAssembly linker;
-use Homebrew LLVM or the Emscripten build instead. `CLANG=/path/to/clang` overrides the compiler.
-
-## Put it on the Android tablet over HTTPS
-
-See [Deployment](docs/DEPLOYMENT.md). The repository includes a **manual** GitHub Pages workflow.
-It builds either frontend, runs core/JavaScript/browser smoke tests, and publishes only the
-allowlisted static assets. No account, calendar or client ID is stored in the workflow.
-
-Open the resulting HTTPS page in Chrome. Use **Settings** to enter a Google **Web application**
-OAuth client ID, prepare sign-in, then sign in and choose the calendars for each member.
-Use Chrome's installation / Add to home screen option when offered. This is a browser app,
-not an APK. The tablet needs a modern browser with WebAssembly; the project also uses
-modern browser APIs such as `structuredClone` and `<dialog>`.
-
-Full Google setup: [Google Workspace / Calendar](docs/GOOGLE_SETUP.md).
+Revocation, expired refresh credentials and Workspace policy changes can still require an
+administrator to reconnect. A backend cannot force Android to restart a browser after reboot,
+keep a sleeping tablet online or guarantee a reminder. See [limits and tests](docs/TESTING.md).
 
 ## Rota markers
 
-Choose the tracked calendar in Settings. Create normal Google events with these exact
-prefixes (prefix matching is case-insensitive):
+Choose a tracked member in Administration. Create ordinary events in that calendar with prefixes:
 
 ```text
 [PW:WORK] Day shift
@@ -107,61 +86,64 @@ prefixes (prefix matching is case-insensitive):
 [PW:OFF] Off duty
 ```
 
-Work and on-call can be timed or all-day. Off-duty must be all-day. An on-call marker
-always implies working; no second work event is required. A work/off overlap on a civil
-calendar day produces `CHECK ROTA`. Missing data is `? ROTA`, never automatically OFF.
-The markers are converted to the rota band and do not consume ordinary appointment slots.
-Overnight shifts affect every day actually overlapped; an exclusive midnight end does not
-spill into the next day. One person's rota is supported in this release.
+Work/on-call may be timed or all-day; OFF must be all-day. On-call implies working. An overlapping
+work/off day is a conflict; missing information is unknown, not off. Weekends are treated normally.
+The shared C code turns these records into the rota band instead of ordinary appointments. Overnight
+shifts affect every day actually overlapped; an exclusive midnight end does not include the next day.
+The **status** remains visible even if the underlying shift's descriptive title is privacy-masked.
 
-## Privacy and public source
+## Source reuse and boundaries
 
-The source and demo use **generic labels and invented events only**. Configure actual names,
-calendar IDs and the client ID through the settings interface on each device.
+```text
+Google -> private Python backend -> bounded, privacy-filtered event data
+                                      |
+                           shared JS timezone adapter
+                                      |
+                       C rules + C week/month layout
+                                      |
+                      browser preview OR LVGL backend
+```
 
-Settings are stored in that browser's **unencrypted localStorage**; scripts on the same origin
-can read them. Access tokens and event data are **in-memory only** and lost on reload. There is
-no server database, analytics, telemetry, write permission or bundled account credential.
-Google Identity Services is loaded only after a user chooses to prepare/connect it.
+The default Docker build is the dependency-light **C/WASM/browser-font preview**, compiled and
+labelled as such. `ui/canvas_lvgl.c` and the Emscripten build are supplied, but a complete LVGL build
+was not verified for this release. The ESP32 still needs device authentication, a network adapter,
+LVGL/panel integration, colour conversion, memory/power configuration and physical input wiring.
 
-Settings exports and screenshots can contain private information. They are named `*.private.*`
-and excluded by `.gitignore`; do not drag them into GitHub uploads. Browser data and Git history
-are different things: `.gitignore` does not remove a secret that was already committed.
-Read [Security](SECURITY.md) before public hosting.
+This release does **not** include photograph/OCR import, direct event creation, voice integration,
+multiple separate households, push notifications from Google or an Internet-exposed multi-tenant
+service. Those should not be confused with unattended read-only synchronisation.
 
-## Testing
+## Development and testing
 
 ```sh
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -r backend/requirements-dev.txt
+python -m pytest tests/backend -q
+bash tools/build-preview.sh              # LLVM clang + wasm-ld required
+node --test tests/*.test.mjs             # Node 22+
 cmake -S . -B build/core -DCMAKE_BUILD_TYPE=Release
 cmake --build build/core
 ctest --test-dir build/core --output-on-failure
-bash tools/build-preview.sh
-node --test tests/*.test.mjs
 python3 tools/privacy_check.py
 ```
 
-See [Testing and limitations](docs/TESTING.md) for exactly what was run and what was not.
-GitHub Actions contains an additional real-LVGL build and HTTP browser smoke test. Those
-workflow runs have not been executed as part of this artifact delivery.
+[Testing](docs/TESTING.md) documents the local API/UI checks, their mocked external boundaries and
+what remains unverified. The backend CI workflow adds a clean Docker build; no workflow publishes
+or deploys a server automatically. Static GitHub Pages is only a legacy frontend demonstration.
 
-## Portability boundary
+For the older standalone browser and LVGL toolchains, see [legacy static documentation](docs/LEGACY_STATIC.md).
 
-```text
-Google API / demo adapter
-  -> local-day event records
-  -> core/calendar.c: overlap, rota, sorting, density, navigation
-  -> core/view_model.h: fixed-size view
-  -> ui/calendar_ui.c: shared 1600 x 1200 layout
-  -> LVGL framebuffer OR lightweight browser preview
-```
+## Privacy, backups and licence
 
-The Google browser adapter is not ESP32 authentication code. The ESP32 still needs its
-own data adapter, panel-specific refresh driver, six-colour quantisation, power/memory
-configuration and button wiring. [Architecture and porting](docs/ARCHITECTURE.md) describes
-those boundaries. Source reuse does not make this a tested firmware image.
+Public defaults are generic. Runtime configuration, event data, tokens and device sessions live in
+private files/volumes, not source. Google credentials are encrypted at rest; cached events and
+settings in SQLite are not. Read [SECURITY.md](SECURITY.md), protect the host/backups, and never
+commit `.env.private`, photos, exported settings or your database.
 
-## Licence
+Back up **both** the consistent database export and `.env.private`; the encryption key cannot be
+recovered from source. Do not remove the data volume during upgrades.
 
-Paperweek code: MIT. Third-party components retain their own licences; see
-[Third-party notices](docs/THIRD_PARTY.md). No endorsement by Google, LVGL or any hardware vendor
-is implied. Do not rely on a prototype display as the sole reminder for critical commitments.
+Paperweek code is MIT licensed. Keep [third-party notices](docs/THIRD_PARTY.md) with distributions.
+No endorsement by Google, LVGL or a hardware vendor is implied. Do not rely on a prototype display
+as the sole reminder for critical commitments.

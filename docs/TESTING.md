@@ -1,72 +1,104 @@
-# Testing record — v0.3.0
+# Release validation — v0.4.0
 
-## Executed for this release
+Recorded on 2026-09-05. These are local release tests, not evidence of deployment into a real
+household. No private calendar account, domain configuration or Google credential was used.
 
-- Native C compiler/CMake build: **1,278 core assertions**, including 1,212 Gregorian
-  round-trip date cases, month/week ranges, leap years, overnight/exclusive ends, rota,
-  event sorting, deduplication, overflow and button-help timing.
-- Node.js test runner: **49 tests**, including configuration validation, privacy fields,
-  Google response normalisation, DST, fake REST pagination/error handling and direct execution
-  of the actual compiled **preview WASM** binary.
-- System Chromium, through Playwright's **offline in-memory component fixture**:
-  **27 checks**, including settings, member limits, week/month navigation, overlay timeout,
-  refresh lockout, missing Google mappings, forgetting local settings and viewport layout.
-- Week, month, overlay, settings and tablet-sized preview screenshots visually inspected.
+## Executed successfully
 
-The browser fixture loads the application's actual JS sources and compiled WASM bytes from
-memory. It substitutes storage and static-file fetches and inlines CSS. It does not claim to test
-an HTTPS origin or Google. It does not modify browser/network policy. Test fixtures contain only
-invented data.
+| Test group | Result | Actual boundary |
+| --- | --- | --- |
+| Python backend/configuration/backup | **68 tests passed** | FastAPI ASGI application, real SQLite/Fernet, mock Google HTTPS transport, temporary private storage |
+| JavaScript/WebAssembly | **60 tests passed** | Existing calendar adapters/C-WASM bridge plus new API/offline-cache helpers |
+| Compiled C core | **1,278 assertions passed** | Native build using CMake/GCC, with warnings treated as errors |
+| Browser/admin/tablet components | **20 checks passed** | Real Chromium DOM and C/WASM; real local API through a Python HTTP bridge; mocked Google provider |
+| Public HTTP smoke | **21 checks passed** | Actual Uvicorn over loopback HTTP and urllib: MIME, public shell, health, no-store and protected/private routes |
+| Preview build | **Compiled successfully** | LLVM/Clang plus wasm-ld; shared C rules/layout, browser-font drawing backend |
+| Visual inspection | Week, month and administration views inspected | Generic invented demo data; screenshots from the browser component fixture |
 
-## Not verified here
+The backend tests exercise session roles, pairing replay/expiry/revocation, same-origin protections,
+password hashing, shared settings and optimistic revisions, PKCE/state binding and replay, OAuth
+refresh/failure/persistence, missing scopes/refresh grants, encrypted credentials, pagination,
+quota/network/provider failures, failed-page cache preservation, cancellations, declined invitations,
+server-side title masking, rota markers, missing-window loading, cached stale data, midnight/DST,
+account-change cache invalidation, key mismatch, configuration generation and consistent SQLite backup.
 
-The environment blocked dependency/network downloads and browser network navigation. Consequently:
+The component browser test performs administrator login, settings save, pairing, tablet navigation,
+Google fixture linking, server-fetched event display, **automatic access-token renewal without another
+tablet login**, shared-config refresh, offline retention, and device revocation. It checks for unhandled
+JavaScript exceptions. Screenshots are demonstration data, not the user's calendars.
 
-- **The real LVGL/Emscripten target was not downloaded, compiled or executed here.**
-- Native source structure and public upstream API references were checked, but that is not a build.
-- Live Google sign-in, Workspace policy, the deployed CSP with Google's popup, token renewal and
-  real calendar responses were not tested against an account.
-- The real HTTP smoke script, GitHub Actions workflows, Pages deployment, service-worker lifecycle,
-  PWA installation, wake-lock/full-screen behaviour and an actual Android tablet remain untested.
-- No physical e-paper panel, refresh waveform, ESP32 driver, RAM budget or GPIO wiring was tested.
+## Browser test limitation
 
-Do not interpret unit tests with injected Google responses as a live integration test.
+Direct browser navigation to the environment's local HTTP server was blocked by an environment
+policy. That restriction was not disabled. For component testing, HTML/modules were supplied to
+Chromium and local API calls were bridged through isolated Python HTTP clients. Thus the test covers
+actual application JavaScript/DOM/WASM and server API semantics, **not browser-enforced cookie,
+Origin/CSP, redirect, TLS, service-worker or PWA behaviour**. Separate real HTTP checks verify response
+headers, not whether a particular browser enforces them as intended. The difference matters.
 
-## Commands
+## Not executed / not verified here
+
+- Docker daemon/image build, runtime filesystem permissions inside Docker, Compose/NPM deployment.
+- Live Google sign-in/consent, Workspace policies, real offline grant, quota behaviour or real calendars.
+- Browser-to-NPM HTTPS, authorised callback at a real domain, service-worker upgrade end to end.
+- A physical Android tablet, home-screen installation, wake lock, screen timeout or restart behaviour.
+- Actual LVGL/Emscripten dependency build. The Docker default is the tested **browser-font preview**,
+  not secretly LVGL. The LVGL adapter/toolchain remains in source for further work.
+- ESP32 firmware, Spectra panel driver, colour calibration, physical refresh/button/power behaviour.
+- OCR, photo import, Google writes or voice integration; these are not implemented in v0.4.
+- A penetration test, independent security audit, dependency vulnerability audit or long-duration soak.
+
+The Python execution environment used Python 3.13; the supplied Docker/CI target is Python 3.12.
+The pinned dependency versions were exercised in the former; the container build on the latter
+still needs to run. Version pins do not claim latest or vulnerability-free releases.
+
+## Reproduce core/backend tests
 
 ```sh
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -r backend/requirements-dev.txt
+python -m pytest tests/backend -q
+bash tools/build-preview.sh
+node --test tests/*.test.mjs
 cmake -S . -B build/core -DCMAKE_BUILD_TYPE=Release
 cmake --build build/core
 ctest --test-dir build/core --output-on-failure
-bash tools/build-preview.sh
-node --test tests/*.test.mjs
-python3 tools/privacy_check.py
 ```
 
-For the offline browser component tests, install Playwright and a Chromium browser, then:
+Preview build requires LLVM/Clang/wasm-ld; CMake/GCC or Clang is needed for native tests. Node 22+
+is the tested JavaScript target. The component fixture additionally needs Playwright and Chromium:
 
 ```sh
-python3 tools/browser_test.py
-# Or provide an existing Chromium executable:
-python3 tools/browser_test.py --chromium /path/to/chromium
+pip install playwright==1.57.0
+playwright install chromium
+python tools/backend_browser_test.py
 ```
 
-On a normal development machine, after building the actual LVGL frontend:
+Where a system Chromium is installed, pass `--chromium /path/to/chromium`. `--screenshots PATH`
+optionally writes generic fixture screenshots. The test prints its HTTP-bridge limitation.
+
+## Check the real deployment
+
+After starting the Docker service behind trusted HTTPS:
 
 ```sh
-bash tools/build-web.sh
-python3 tools/http_smoke.py --backend lvgl
+python3 tools/backend_smoke.py --url https://paperweek.example.net
 ```
 
-The HTTP smoke test starts a localhost server, loads the unchanged HTML/modules/WASM under the
-page's CSP, checks real raster output and toggles the view. CI and manual Pages publishing run
-that smoke test before uploading a selected build. Those workflows were supplied, not run here.
+Then sign in through `/admin`, connect the real Google account, choose calendars, watch per-month
+sync success, pair the actual tablet and add/change a harmless test event **in Google Calendar**.
+Confirm its appearance/update/removal, current timezone, recurring instances and rota status. Leave
+the display running beyond an access-token lifetime and check that no tablet sign-in is requested.
+Test a network interruption and recovery, restart the container without deleting its volume, and
+verify backup restoration in a disposable environment before relying on the service.
 
-## On-device acceptance checklist
+The `backend.yml` GitHub workflow adds a clean-source Docker build and container/public-HTTP smoke
+check. It has been supplied but **not run on GitHub** for this artifact. Legacy frontend/LVGL workflow
+files remain; Pages deployment is still only the static demonstration, not the backend.
 
-Verify all selected calendars appear; compare an all-day, recurring and overnight event against
-Google Calendar; confirm the chosen timezone across a DST change; test a private title; create
-rota markers including work on a weekend and a work/off conflict; verify next/previous/today;
-let the Google token expire and reconnect; turn Wi-Fi off and confirm the stale warning; reload
-and verify no private events are silently persisted; then test installation and waking the tablet.
-Use real calendar edits in Google, since Paperweek is read-only.
+## Publication check
+
+Run `python tools/privacy_check.py --tracked` after staging. Scan any release build separately,
+review images and Git history, and keep private deployments separate. This heuristic is not a
+security audit or a guarantee that arbitrary future contributions contain no identifying information.

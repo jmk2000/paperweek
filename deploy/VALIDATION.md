@@ -1,3 +1,9 @@
+# Legacy static hosting notes
+
+This directory is retained as a v0.3 Nginx reference and is not used by the v0.4 Dockerfile. The current validation record is [docs/TESTING.md](../docs/TESTING.md). Use `tools/backend_smoke.py`, not the legacy hosting checks, for the new authenticated service.
+
+---
+
 # Hosting add-on validation — 5 September 2026
 
 ## Passed in the build environment

@@ -1,3 +1,9 @@
+# Deployment routes
+
+**v0.4 unattended server:** use [BACKEND.md](BACKEND.md) and Docker/NPM. Static GitHub Pages cannot run its Python backend, store server credentials or perform scheduled synchronisation. The original Pages workflow below is only a legacy browser demonstration.
+
+---
+
 # Deployment and Android
 
 Paperweek is a static browser app. Deploy code/assets, not household settings or calendar

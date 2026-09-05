@@ -1,3 +1,13 @@
+# v0.4 architecture addition
+
+The new `backend/` holds private OAuth, SQLite storage, settings, pairing and scheduled sync. `web/backend-app.mjs` replaces direct browser Google calls with the authenticated local API, while reusing the C/WASM renderer and event/timezone adapter. `web/admin.mjs` configures the service. Docker compiles the default browser-font preview.
+
+The shared C `core/` and `ui/` remain the display implementation; the backend does not introduce a separate HTML calendar or duplicate the rota layout. Provider records are normalised and privacy-filtered before transit. An ESP32 network/authentication and panel adapter is future work.
+
+Read [BACKEND.md](BACKEND.md) for the current service flow. The rest of this file describes the shared core and the older standalone adapters.
+
+---
+
 # Architecture and the ESP32 boundary
 
 ## Shared C, not two unrelated calendars

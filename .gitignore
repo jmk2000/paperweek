@@ -25,3 +25,13 @@ settings.local.json
 /local-data/
 /screenshots/
 /test-results/
+# Backend persistent data and private runtime secrets
+/data/
+/backups/
+*.sqlite
+*.sqlite3
+*.sqlite3-*
+*.db
+*.db-*
+*.log
+.pytest_cache/
