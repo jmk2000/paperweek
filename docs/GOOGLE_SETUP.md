@@ -1,88 +1,96 @@
-# Google Workspace setup
+# Google Calendar and Workspace setup
 
-This is for your own Google Workspace account on your Mac. You do not need to make your calendars public, create a service account, enable domain-wide delegation, or give the app write access.
+This browser build uses Google Identity Services' **token model**, with a popup triggered
+by a button press. It calls the Calendar REST API directly. There is no client secret,
+API key or refresh-token file in the browser application.
 
-## Create the project and client
+## Register the application
 
-1. Sign in to Google Cloud Console with your Workspace account. Create a project such as **Paperweek**. For an Internal app, the project must belong to the organisation associated with your Workspace domain, not an unrelated personal project.
-2. In the API Library, enable **Google Calendar API** for that project.
-3. Open **Google Auth platform**. Complete **Branding** with a name such as Paperweek and your contact email. Under **Audience**, select **Internal** when available for your organisation.
-4. Under **Data Access**, add the two read-only scopes below where applicable. An Internal application's consent configuration may not require you to list scopes in the same way as an External application, but the code still requests them.
-5. Under **Clients**, create an OAuth client with application type **Desktop app**. Do not choose Web application, TV/limited-input device, or service account.
-6. Download the client JSON. Save it as `credentials.json` in the Paperweek project folder. Alternatively, use the explicit path option shown below.
+1. In Google Cloud, create/select a project and enable **Google Calendar API**.
+2. Configure the Google Auth platform branding and consent audience. A project owned by
+   a Workspace organisation may offer **Internal**, appropriate for organisation-only use.
+   Otherwise choose External and add test users during development. Public distribution
+   of the source code does not make your OAuth app public; each household can register
+   its own app. A public multi-user OAuth service is a separate deployment/verification task.
+3. Create an OAuth client with application type **Web application**. The Desktop app
+   credential from a previous native prototype is not interchangeable with this one.
+4. Add the exact **Authorized JavaScript origin**. For a local Mac test this can be
+   `http://localhost:8080` (or the loopback origin actually used). For a tablet, use the
+   deployed HTTPS site's origin, for example `https://YOUR-USERNAME.github.io`.
+   An origin has no repository path or trailing route. Register custom domains separately.
+   Do not enter `https://YOUR-USERNAME.github.io/paperweek/` as an origin.
+5. Add these read-only scopes to consent settings as appropriate:
 
 ```text
 https://www.googleapis.com/auth/calendar.events.readonly
 https://www.googleapis.com/auth/calendar.calendarlist.readonly
 ```
 
-Official setup reference:
-`https://developers.google.com/workspace/calendar/api/quickstart/python`
+The events scope can read calendars that the signed-in account can access; the application's
+selection is not a Google-enforced per-calendar permission boundary. Use an appropriately
+limited Google account where stronger separation is required. Workspace admin policy can
+block an app or restrict sharing; resolve that in the Workspace admin controls rather than
+making calendars public or enabling domain-wide delegation for this prototype.
 
-The reference uses a broader read-only Calendar scope in its example. Paperweek intentionally uses the narrower event-read and calendar-list-read scopes.
+## Connect on the tablet
 
-## Sign in and choose what is displayed
+Open the deployed HTTPS page in Chrome, then Settings. Paste **only the client ID**. Set the
+correct display timezone. Tap **Prepare Google sign-in**. Once ready, tap **Sign in & load
+calendar choices**. The second, explicit press preserves the browser's popup user gesture.
 
-From the project directory:
+Sign in with the one account that can access all intended calendars and grant both read-only
+permissions. Select a Google calendar for each configured person, select Google as the data
+source, and press Apply settings. Remove unused people instead of leaving their calendars blank.
 
-```bash
-./run.sh connect
-```
+For existing mapped settings, the header Connect Google button prepares the library on the
+first use and asks for a second press to sign in. Later reconnects can open the popup directly.
+Calendars shared with you may need to be added to your Google Calendar list before appearing.
 
-Or specify the downloaded JSON's path without renaming it:
+## Important limitations
 
-```bash
-./run.sh connect --credentials "$HOME/Downloads/client_secret_your_file.json"
-```
+**A plain `http://192.168...` address on an Android tablet is not the localhost exception.**
+Use LAN HTTP for the demo and HTTPS for live Google use. `localhost` on the tablet means the
+tablet, not a Mac serving the files.
 
-The app copies the validated client configuration into `~/.paperweek/credentials.json` with owner-only file permissions. The browser opens Google sign-in using a temporary loopback callback on `127.0.0.1`. Select your Workspace account and approve both read-only permissions. Return to Terminal and select calendar numbers, display names, colours, and optional whole-calendar title masking.
+Google browser access tokens are short-lived. This version does not quietly refresh them
+on a timer or store refresh tokens in browser storage. A button press is required to reconnect
+when access expires, and after reloading the app. You can test real calendars, but you should
+not expect an unattended multi-week household appliance from this auth arrangement.
 
-The wizard asks about **hiding all titles** separately from its default handling of events explicitly marked private. A calendar being private to its owner does not mean every event is marked `visibility=private`. For a work calendar that should only display occupied time, choose whole-calendar masking.
+Events are kept only in memory. A failed calendar request retains the last successful view
+and marks it stale; a partly fetched set of calendars is never committed. Reloading loses
+those events. The service worker caches the app shell, not Google responses or private events.
+The app polls only while open/foregrounded and does not promise background browser sync.
 
-Start the connected view:
+Calendar API expands recurring events (`singleEvents=true`). All-day dates are date-only
+with exclusive ends; timed records are converted to the configured display timezone before
+the C core handles day overlap. Ambiguous timestamps missing an offset are rejected rather
+than interpreted using the tablet's accidental local timezone. The current display is
+English and ASCII-focused; accents are transliterated, unsupported characters become `?`.
 
-```bash
-./run.sh google
-```
+## Privacy masks
 
-The token lives in macOS Keychain under **Paperweek Calendar Prototype**. macOS may ask permission for Python to access that Keychain item. The original downloaded client JSON can be removed after a successful connection; the private local copy remains available for later sign-ins.
-
-## Family members outside your domain
-
-Only your account authenticates to this prototype. Share a partner's or household calendar with that account through Google Calendar, with permission to see event details, then add it to that account's calendar list. Rerun `./run.sh connect` to reselect calendars.
-
-Google and Workspace sharing policies still apply. The app cannot bypass restrictions or reveal details that your account is not permitted to read. Free/busy-only calendars are excluded from the wizard in this version; supporting them would require a separate free/busy adapter.
-
-## Internal versus External
-
-Internal apps are for sign-ins within the associated Workspace organisation. They are not automatically available to unrelated Gmail accounts, even if you own the domain. You do not need external sign-in merely to read calendars shared with your internal account.
-
-If Internal is unavailable, check the project's organisation and the signed-in account. An **External / Testing** app with your account added as a test user is an alternative for a prototype. For Calendar permissions, Google normally expires refresh tokens from that testing configuration after **seven days**. That is not a bug in the display. Use `./run.sh connect` to renew access, or configure the appropriate longer-term app audience/publishing arrangement under Google's rules.
-
-Workspace admin app-access restrictions can still block an Internal app. Check Calendar API enablement, Cloud-project access, and Workspace app-access controls rather than weakening the application scopes.
+Private-marked event titles are hidden by default; any selected calendar can be configured to
+show only “Busy”. Rota tags are classified before title masking so the chosen status band still
+works. Rota status and event timing remain visible; a title mask is not a hide-the-event control.
+Free/busy-only calendar permissions do not provide enough detail for a title-based rota band.
 
 ## Troubleshooting
 
-**Access blocked / 403:** verify that Calendar API is enabled in the same project as the downloaded client, your account is an allowed Internal or test user, and Workspace policy permits the app.
+- **Origin mismatch:** confirm the exact scheme, hostname and port; use a Web client.
+- **Access blocked / 403:** check the API is enabled, both scopes were granted, the app's
+  audience includes the user, Workspace policy permits it, and the account can read each calendar.
+- **Popup cancelled/blocked:** prepare the library first, then press the sign-in button again.
+- **Blank choices:** confirm the calendars are in the signed-in account's calendar list and
+  have at least read access, not just free/busy access.
+- **Wrong day/time:** check Paperweek's IANA display timezone, not only the tablet timezone.
+- **Expired connection:** press Connect/Reconnect Google. Forgetting local settings is not
+  the same as revoking Google consent; use Revoke while connected or Google Account settings.
 
-**Redirect mismatch:** confirm that the downloaded client is a **Desktop app**. The application uses an ephemeral local loopback port, not a public URL that you need to host.
+## Official references
 
-**Browser did not open:** run the command directly on your Mac desktop, not in a remote/headless session. The prototype does not implement an alternative code-copy sign-in flow.
-
-**Missing calendar:** add it to the signed-in account's calendar list and ensure that account has permission to read events. Rerun the connection wizard.
-
-**Sign-in needs renewing:** close the preview, then run `./run.sh connect`. This version deliberately does not open an unexpected sign-in browser from its background refresh worker.
-
-**Keychain error:** check that your login Keychain is unlocked and permit this local Python app to use its own credential item. There is no silent plaintext token fallback on macOS.
-
-## Disconnect
-
-Close the preview, then run:
-
-```bash
-./run.sh disconnect
-```
-
-This removes its local access/refresh credential and cached event snapshots. It leaves the non-token client configuration and display preferences. It does **not** revoke the Google-side OAuth grant or delete screenshots. To revoke the grant, remove Paperweek in your Google Account's third-party connections settings. Delete exports separately when no longer needed.
-
-Never include `credentials.json`, a token, real calendar caches, or screenshots of private events in a support message or public repository.
+[Google Calendar JavaScript quickstart](https://developers.google.com/workspace/calendar/api/quickstart/js),
+[Google Identity Services token model](https://developers.google.com/identity/oauth2/web/guides/use-token-model),
+[Calendar scopes](https://developers.google.com/workspace/calendar/api/auth),
+[Events list and recurrence expansion](https://developers.google.com/workspace/calendar/api/v3/reference/events/list),
+[OAuth consent setup](https://developers.google.com/workspace/guides/configure-oauth-consent).

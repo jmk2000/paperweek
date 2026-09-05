@@ -1,0 +1,63 @@
+# Publishing is manual. Merely pushing the repository does not publish a site.
+name: Publish web app
+on:
+  workflow_dispatch:
+    inputs:
+      backend:
+        description: 'Renderer to publish (LVGL recommended after CI passes)'
+        required: true
+        default: lvgl
+        type: choice
+        options: [lvgl, preview]
+permissions:
+  contents: read
+concurrency:
+  group: paperweek-pages
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: sudo apt-get update && sudo apt-get install -y clang lld cmake
+      - run: python3 tools/privacy_check.py --tracked
+      - name: Core and portable-preview tests
+        run: |
+          cmake -S . -B build/core -DCMAKE_BUILD_TYPE=Release
+          cmake --build build/core --parallel 4
+          ctest --test-dir build/core --output-on-failure
+          bash tools/build-preview.sh
+          node --test tests/*.test.mjs
+      - name: Compile LVGL
+        if: inputs.backend == 'lvgl'
+        run: |
+          bash tools/install-emsdk.sh "$RUNNER_TEMP/emsdk"
+          source "$RUNNER_TEMP/emsdk/emsdk_env.sh"
+          bash tools/build-web.sh
+      - name: Browser smoke test
+        env:
+          PW_BACKEND: ${{ inputs.backend }}
+        run: |
+          python3 -m venv "$RUNNER_TEMP/test-venv"
+          "$RUNNER_TEMP/test-venv/bin/pip" install playwright==1.57.0
+          "$RUNNER_TEMP/test-venv/bin/playwright" install --with-deps chromium
+          "$RUNNER_TEMP/test-venv/bin/python" tools/http_smoke.py --backend "$PW_BACKEND"
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist-${{ inputs.backend }}
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

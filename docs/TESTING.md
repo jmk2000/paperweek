@@ -1,55 +1,72 @@
-# Validation report
+# Testing record — v0.3.0
 
-## Completed in the development environment
+## Executed for this release
 
-**Environment:** Linux, Python 3, CMake and a native C++ compiler. No access to a Mac or to the user's Google account.
+- Native C compiler/CMake build: **1,278 core assertions**, including 1,212 Gregorian
+  round-trip date cases, month/week ranges, leap years, overnight/exclusive ends, rota,
+  event sorting, deduplication, overflow and button-help timing.
+- Node.js test runner: **49 tests**, including configuration validation, privacy fields,
+  Google response normalisation, DST, fake REST pagination/error handling and direct execution
+  of the actual compiled **preview WASM** binary.
+- System Chromium, through Playwright's **offline in-memory component fixture**:
+  **27 checks**, including settings, member limits, week/month navigation, overlay timeout,
+  refresh lockout, missing Google mappings, forgetting local settings and viewport layout.
+- Week, month, overlay, settings and tablet-sized preview screenshots visually inspected.
 
-**41 Python unit tests passed.** They cover weekday/year boundaries, London spring/autumn clock changes, all-day exclusive endings, overnight events, midnight boundaries, zero-duration events, private and whole-calendar masking, declined/cancelled events, recurrence-instance identities, duplicate invitations, explicit overflow, malformed events, ASCII/control sanitisation, event serialisation, calendar/event pagination, empty intermediate pages, read-only query construction, transient retries, partial-refresh rejection, pagination-loop rejection, error sanitisation, atomic private files, cache isolation, preservation of the last good snapshot, unavailable-versus-empty display states, and PNG dimensions/chunks/CRCs/physical metadata.
+The browser fixture loads the application's actual JS sources and compiled WASM bytes from
+memory. It substitutes storage and static-file fetches and inlines CSS. It does not claim to test
+an HTTPS origin or Google. It does not modify browser/network policy. Test fixtures contain only
+invented data.
 
-**19 checks in a compiled C++ protocol test passed.** The test validates normal views, text bounding, day/calendar/event limits, field validation, malformed records, and incomplete input. Tests use explicit runtime checks, so Release builds do not disable them with `NDEBUG`.
+## Not verified here
 
-**Cross-language check passed:** Python generated `examples/demo-week.pwv`, and the compiled C++ reader accepted it.
+The environment blocked dependency/network downloads and browser network navigation. Consequently:
 
-**Python syntax compilation and shell syntax checks passed.**
+- **The real LVGL/Emscripten target was not downloaded, compiled or executed here.**
+- Native source structure and public upstream API references were checked, but that is not a build.
+- Live Google sign-in, Workspace policy, the deployed CSP with Google's popup, token renewal and
+  real calendar responses were not tested against an account.
+- The real HTTP smoke script, GitHub Actions workflows, Pages deployment, service-worker lifecycle,
+  PWA installation, wake-lock/full-screen behaviour and an actual Android tablet remain untested.
+- No physical e-paper panel, refresh waveform, ESP32 driver, RAM budget or GPIO wiring was tested.
 
-## Not completed here
+Do not interpret unit tests with injected Google responses as a live integration test.
 
-The full LVGL/SDL preview could not be built because the environment lacked SDL development headers and could not download native dependencies. The LVGL UI and SDL adapter have therefore **not been compiled, run, or visually checked here**. Native APIs were checked against the LVGL 9.3.0 headers/build configuration, but that is not a substitute for a complete build.
+## Commands
 
-macOS window creation, Apple Silicon/Intel compatibility, Keychain access, browser callback, live Google Calendar responses, and token renewal were not exercised. No ESP32 compilation, panel driver, native six-colour packing, memory profiling, or hardware refresh test is included.
-
-## Run the complete local build/check
-
-```bash
-bash setup.sh
+```sh
+cmake -S . -B build/core -DCMAKE_BUILD_TYPE=Release
+cmake --build build/core
+ctest --test-dir build/core --output-on-failure
+bash tools/build-preview.sh
+node --test tests/*.test.mjs
+python3 tools/privacy_check.py
 ```
 
-This builds the native app and runs both test suites. It then asks the actual LVGL renderer to create `build/smoke-test.png` from invented events. Open that PNG to inspect the native rendering before connecting your real account.
+For the offline browser component tests, install Playwright and a Chromium browser, then:
 
-To run just the tests without installing Google authentication libraries or native rendering dependencies:
-
-```bash
-python3 -m unittest discover -s tests -v
-cmake -S . -B build-model -DPAPERWEEK_MODEL_ONLY=ON
-cmake --build build-model
-ctest --test-dir build-model --output-on-failure
-./build-model/model_test examples/demo-week.pwv
+```sh
+python3 tools/browser_test.py
+# Or provide an existing Chromium executable:
+python3 tools/browser_test.py --chromium /path/to/chromium
 ```
 
-A full native demo build without the Google Python dependencies is also possible after installing the native prerequisites:
+On a normal development machine, after building the actual LVGL frontend:
 
-```bash
-PAPERWEEK_SKIP_GOOGLE_DEPS=1 bash setup.sh
+```sh
+bash tools/build-web.sh
+python3 tools/http_smoke.py --backend lvgl
 ```
 
-Install the dependencies later by running setup normally before trying Google sign-in.
+The HTTP smoke test starts a localhost server, loads the unchanged HTML/modules/WASM under the
+page's CSP, checks real raster output and toggles the view. CI and manual Pages publishing run
+that smoke test before uploading a selected build. Those workflows were supplied, not run here.
 
-## Manual acceptance checks on the Mac
+## On-device acceptance checklist
 
-Open the sample view, navigate both directions and return to today. Resize the window and try full screen; the 4:3 layout should letterbox, not reflow. Toggle both palettes and export a frame. Confirm seven day columns, colour labels, legible text, and clean footer spacing.
-
-Connect your own Workspace account and compare a few events with Google Calendar, including an all-day event and a recurring event. Check that a private-marked event is displayed as Busy. Test whole-calendar masking separately. Navigate to a different week and confirm its dates/events agree.
-
-Temporarily disconnect the Mac from the network and press R. A previously fetched week should retain its data with a failure/last-success indication. An unfetched week should say not loaded rather than showing an empty schedule. Restore connectivity and refresh.
-
-Test the 19-second delay independently from normal operation. Check exported/printed text at the intended physical dimensions. Keep real calendar screenshots private.
+Verify all selected calendars appear; compare an all-day, recurring and overnight event against
+Google Calendar; confirm the chosen timezone across a DST change; test a private title; create
+rota markers including work on a weekend and a work/off conflict; verify next/previous/today;
+let the Google token expire and reconnect; turn Wi-Fi off and confirm the stale warning; reload
+and verify no private events are silently persisted; then test installation and waking the tablet.
+Use real calendar edits in Google, since Paperweek is read-only.

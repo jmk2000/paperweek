@@ -1,0 +1,25 @@
+# Allowlist: adding a file to the working tree cannot make it public.
+**
+!Dockerfile
+!deploy/
+deploy/**
+!deploy/nginx.conf
+!dist-preview/
+dist-preview/**
+!dist-preview/index.html
+!dist-preview/styles.css
+!dist-preview/app.mjs
+!dist-preview/config.mjs
+!dist-preview/dates.mjs
+!dist-preview/events.mjs
+!dist-preview/google.mjs
+!dist-preview/renderer.mjs
+!dist-preview/manifest.webmanifest
+!dist-preview/icon.svg
+!dist-preview/icon-192.png
+!dist-preview/icon-512.png
+!dist-preview/paperweek-preview.wasm
+!dist-preview/build-info.json
+!dist-preview/sw.js
+!dist-preview/LICENSE.txt
+!dist-preview/THIRD_PARTY.md

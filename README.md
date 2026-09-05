@@ -1,153 +1,167 @@
 # Paperweek
-## A native, six-colour family-calendar prototype for your Mac
 
-**Version 0.1 · Source prototype · 1600 × 1200 · Read-only Google Calendar**
+**Docker / Nginx Proxy Manager:** see [README-DOCKER.md](README-DOCKER.md). The hosting ZIP includes prebuilt preview assets. This is still the v0.3 browser-only application, not the planned backend.
 
-Paperweek is a weekly wall-calendar preview, not a web page. The display is drawn in C with **LVGL 9.3.0**, shown in an SDL window, and deliberately constrained to six colours. A separate Python companion retrieves Google Calendar events. The same `native/calendar_ui.c` layout is intended to be reusable in the eventual ESP32 project.
+A configurable shared calendar for a tablet today and a colour e-paper display later.
+The calendar model, rota rules, week/month layout and button behaviour are portable C.
+The browser handles Google authorisation, timezone conversion, device settings and hosting.
 
-**Validation boundary:** 41 Python tests and 19 checks in a compiled C++ protocol test passed in the Linux development environment. A Python-generated sample was also accepted by the C++ reader. **The complete LVGL/SDL application has not been compiled or visually inspected here, and macOS launch, Keychain integration, and live Google OAuth have not been tested.** This environment could not obtain the native dependencies. The setup script builds and tests those components on your Mac, including a real LVGL PNG smoke test. This is not a signed, prebuilt `.app`.
+**Prototype v0.3.0 — not finished ESP32 firmware.**
 
-## 1. Try the demo first
+## Two rendering builds
 
-Unzip the project into an ordinary folder, then open Terminal in that folder. These commands assume Homebrew is installed. Homebrew's official installation instructions are at `https://brew.sh`.
+| Build | Reused implementation | Rendering | Status of this release |
+| --- | --- | --- | --- |
+| `preview` | Real C calendar model, layout and controls compiled to WASM | Browser Canvas text and rectangles; browser font metrics | Compiled and tested in this environment |
+| `lvgl` | The same C core and layout, plus `ui/canvas_lvgl.c` | Actual LVGL 9.3 framebuffer, compiled with Emscripten | Source/build target supplied; full dependency download and build **not verified here** |
 
-```bash
-cd ~/Downloads/paperweek   # Adjust this to wherever you extracted the folder.
-brew install cmake pkgconf sdl2-compat python@3.12
-bash setup.sh
-./run.sh demo
+The ready-to-host preview is **not secretly an LVGL binary**. Its header identifies it as
+“C/WASM preview · browser fonts”. It is useful immediately for data and interaction testing;
+use the LVGL build to validate LVGL's own text rasterisation. Both use the same calendar
+logic and the same C layout functions. There is no separate HTML calendar implementation.
+
+## Features
+
+- One to six configurable calendars, generic demo data, unique badges and six-colour design palette.
+- Week and month views, Sunday/Monday first, previous/next/today controls and date selection.
+- One optional rota band: working, working + on-call, explicit off, unknown, or conflict.
+- Read-only Google Calendar access through Google Identity Services; recurring instances expanded by Google.
+- Privacy masking; optional cross-calendar deduplication; midnight/overnight and timezone handling.
+- Always-visible button labels or first-press help; configurable non-flashing refresh delay.
+- Frame-change hashing avoids redraws just because a poll happened.
+- Android-friendly touch buttons, full-screen request, optional screen wake lock and app manifest.
+- Settings import/export; PNG export; accessible text agenda.
+
+## Quickest start: supplied web build
+
+The release's `paperweek-web` ZIP contains `site/`, a precompiled preview and `serve.py`.
+Extract it, open a terminal in that folder, and run:
+
+```sh
+python3 serve.py --directory site --bind 0.0.0.0 --port 8080
 ```
 
-If setup reports missing Apple command-line tools, run `xcode-select --install`, complete Apple's installer, and rerun `bash setup.sh`.
+Open `http://YOUR-MAC-LAN-IP:8080` on a tablet on the same trusted network.
+The Mac must remain running while serving the page. Stop the server with Ctrl-C.
+Use **Settings** to configure the household. Start with invented events.
 
-Setup creates a project-local Python virtual environment, installs the Google libraries, fetches LVGL's tagged source from its official repository, compiles the preview, runs the tests, and renders `build/smoke-test.png`. It does not install anything with `sudo`, alter calendars, or contact Google with your credentials. The initial dependency downloads need internet access; the sample-data demo subsequently runs offline.
+**This LAN HTTP route is for the demo.** Google browser OAuth, PWA installation and wake lock
+need HTTPS on the tablet (localhost exceptions apply only to the device itself).
+The secure deployment route below removes the always-on-Mac requirement.
+Do not open the HTML using `file://`.
 
-Homebrew now supplies the SDL2 interface through `sdl2-compat`. A working existing SDL2 development installation also works through `pkg-config`.
+## Build from source
 
-The sample contains **invented** events for Alex, Sam, Kids, Together, and Home. It repeats relative to whichever week you select. It never writes these events into Google Calendar. The display is explicitly marked **DEMO**.
+Requirements: Git, CMake 3.20+, Python 3.10+, Node 22+ for tests.
 
-After setup, `Paperweek.command` offers a small Terminal menu for demo, Google preview, or connection setup. Running `bash run.sh demo` is an alternative when Finder will not launch a downloaded command file; do not disable macOS security globally.
+### Actual LVGL / Emscripten
 
-## 2. Connect your Workspace calendar
+Install ordinary command-line developer tools and CMake first. On a Mac, CMake is
+available through Homebrew (`brew install cmake`). Then:
 
-Follow **`docs/GOOGLE_SETUP.md`** to create your own Google Cloud project and **Desktop app** OAuth client. Save the downloaded client JSON as `credentials.json` beside this README, then run:
-
-```bash
-./run.sh connect
-./run.sh google
+```sh
+bash tools/install-emsdk.sh
+source "$HOME/.cache/paperweek-emsdk/emsdk_env.sh"
+bash tools/build-web.sh
+python3 serve.py --directory dist-lvgl --port 8080
 ```
 
-The connection wizard opens your browser for Google sign-in, lists calendars subscribed to by your account, and asks which ones to display. Choose up to six, give them short family-friendly labels and colours, and optionally hide all titles in a calendar.
+The toolchain script installs Emscripten 4.0.14 into a separate cache directory.
+The build fetches LVGL 9.3.0. Downloads require internet access. They are not bundled
+as source or font files in this repository. No personal configuration is embedded.
 
-Google credentials stay on your Mac. On macOS, access/refresh credentials are stored in **Keychain**, not in the source folder or a browser. Do not send your downloaded credentials or token to anyone helping you with the project.
+### Dependency-light C/WASM preview
 
-The app requests only these permissions:
+Install LLVM with `clang` and `wasm-ld` on PATH, then:
+
+```sh
+bash tools/build-preview.sh
+python3 serve.py --directory dist-preview --port 8080
+```
+
+On macOS, Apple's default Clang installation may not include the WebAssembly linker;
+use Homebrew LLVM or the Emscripten build instead. `CLANG=/path/to/clang` overrides the compiler.
+
+## Put it on the Android tablet over HTTPS
+
+See [Deployment](docs/DEPLOYMENT.md). The repository includes a **manual** GitHub Pages workflow.
+It builds either frontend, runs core/JavaScript/browser smoke tests, and publishes only the
+allowlisted static assets. No account, calendar or client ID is stored in the workflow.
+
+Open the resulting HTTPS page in Chrome. Use **Settings** to enter a Google **Web application**
+OAuth client ID, prepare sign-in, then sign in and choose the calendars for each member.
+Use Chrome's installation / Add to home screen option when offered. This is a browser app,
+not an APK. The tablet needs a modern browser with WebAssembly; the project also uses
+modern browser APIs such as `structuredClone` and `<dialog>`.
+
+Full Google setup: [Google Workspace / Calendar](docs/GOOGLE_SETUP.md).
+
+## Rota markers
+
+Choose the tracked calendar in Settings. Create normal Google events with these exact
+prefixes (prefix matching is case-insensitive):
 
 ```text
-https://www.googleapis.com/auth/calendar.events.readonly
-https://www.googleapis.com/auth/calendar.calendarlist.readonly
+[PW:WORK] Day shift
+[PW:ONCALL] On-call shift
+[PW:OFF] Off duty
 ```
 
-**Important:** these permissions can read events across calendars your account can access. The wizard's selection controls what this application fetches and displays; it does not narrow Google's OAuth grant to specific calendars. No write permission is requested and no event-editing functionality is implemented.
+Work and on-call can be timed or all-day. Off-duty must be all-day. An on-call marker
+always implies working; no second work event is required. A work/off overlap on a civil
+calendar day produces `CHECK ROTA`. Missing data is `? ROTA`, never automatically OFF.
+The markers are converted to the rota band and do not consume ordinary appointment slots.
+Overnight shifts affect every day actually overlapped; an exclusive midnight end does not
+spill into the next day. One person's rota is supported in this release.
 
-The prototype signs into one Google account. Family calendars can be shared with that account and added to its calendar list. It does not require everyone to have an account in your Workspace domain.
+## Privacy and public source
 
-## 3. Use the preview
+The source and demo use **generic labels and invented events only**. Configure actual names,
+calendar IDs and the client ID through the settings interface on each device.
 
-Click the calendar window so it receives keyboard input.
+Settings are stored in that browser's **unencrypted localStorage**; scripts on the same origin
+can read them. Access tokens and event data are **in-memory only** and lost on reload. There is
+no server database, analytics, telemetry, write permission or bundled account credential.
+Google Identity Services is loaded only after a user chooses to prepare/connect it.
 
-| Key | Action |
-| --- | --- |
-| Left / Right | Previous / next week |
-| T | Return to the current week |
-| R | Request a fresh Google read |
-| E | Toggle representative paper / clean-monitor palettes |
-| D | Toggle a 19-second refresh-delay simulation |
-| F | Enter / leave full-screen mode |
-| S | Save the currently visible LVGL frame as a PNG in `exports/` |
-| Q | Quit |
-| Escape | Leave full screen, or quit when windowed |
+Settings exports and screenshots can contain private information. They are named `*.private.*`
+and excluded by `.gitignore`; do not drag them into GitHub uploads. Browser data and Git history
+are different things: `.gitignore` does not remove a secret that was already committed.
+Read [Security](SECURITY.md) before public hosting.
 
-These are **computer controls standing in for physical frame buttons**. The prototype is not a touchscreen design. It has no scrolling or animated calendar interface.
+## Testing
 
-There are up to six visible entries per day. Busy days show an explicit `+ n more - check phone` message rather than silently dropping excess appointments. Long event titles are shortened on the display. All-day entries appear before timed entries. Overnight events appear on each affected day; an event ending exactly at midnight does not spill into the following day.
-
-The default time zone is `Europe/London`. Recurring events are expanded by Google. Cancelled events and invitations declined by the signed-in user are excluded. Duplicate shared invitations are merged by default, with the first selected calendar supplying the label and colour.
-
-The app checks Google every ten minutes while it is running. Network work stays outside the native rendering thread. A refresh is published only when **all selected calendars** succeed. Cached data has a visible last-success timestamp; failures are marked. A week with no loaded data says **not loaded**, rather than suggesting the family is free. There is no automatic switch from Google data to sample events on failure.
-
-While connected, use `./run.sh config` to locate `~/.paperweek/config.json`. Close the app before editing it, then restart. A commented explanation of its fields is in `docs/ARCHITECTURE.md`; JSON itself does not allow comments.
-
-## 4. Get family feedback at the intended size
-
-The window always renders at 1600 × 1200 internally and scales to your screen without changing the layout. A 4:3 image will be letterboxed on a widescreen Mac in full-screen mode.
-
-Press **S**, or export without opening a window:
-
-```bash
-./run.sh demo --export ./family-preview.png
-./run.sh google --export ./my-week.png
+```sh
+cmake -S . -B build/core -DCMAKE_BUILD_TYPE=Release
+cmake --build build/core
+ctest --test-dir build/core --output-on-failure
+bash tools/build-preview.sh
+node --test tests/*.test.mjs
+python3 tools/privacy_check.py
 ```
 
-This PNG comes from the **actual LVGL framebuffer**, not a second HTML or Python renderer. Exported frames contain six representative RGB colours. Exports of real calendars contain personal information.
+See [Testing and limitations](docs/TESTING.md) for exactly what was run and what was not.
+GitHub Actions contains an additional real-LVGL build and HTTP browser smoke test. Those
+workflow runs have not been executed as part of this artifact delivery.
 
-For a useful wall-readability trial, print the image with an image area approximately **270.4 × 202.8 mm**, or **27.04 × 20.28 cm**, and put it where the calendar might go. Check the measured result; print dialogs may override image sizing metadata. The PNG includes advisory physical-size metadata.
-
-**Correction to the earlier discussion:** 1600 pixels across 270.4 mm is about **150 pixels per inch**, not 200. This prototype uses the correct 1600 × 1200 pixel target; the physical-size calculation is independent of the display software.
-
-Decide whether seven columns are readable, whether the labels make sense, and whether six visible items per day are sufficient. Neither a backlit Mac screen nor a print can accurately reproduce the panel's colours, contrast, refresh waveform, or real lighting conditions. The `D` option simply holds the old frame for 19 seconds; it does not model the panel's electrical refresh process.
-
-## What is portable, and what is not
+## Portability boundary
 
 ```text
-Google Workspace Calendar
-        |
-        | Browser OAuth + read-only HTTPS requests
-        v
-Python calendar adapter on your Mac
-        |
-        | Normalised events -> bounded weekly view
-        | Atomic local file; no web server
-        v
-C view model + LVGL renderer     <-- intended firmware reuse
-        |
-        v
-SDL window / six-colour PNG      <-- desktop-only adapter
+Google API / demo adapter
+  -> local-day event records
+  -> core/calendar.c: overlap, rota, sorting, density, navigation
+  -> core/view_model.h: fixed-size view
+  -> ui/calendar_ui.c: shared 1600 x 1200 layout
+  -> LVGL framebuffer OR lightweight browser preview
 ```
 
-`native/calendar_ui.c` and `native/view_model.h` contain the reusable display layout and its bounded input structure. They do not import Python, Google, SDL, or macOS APIs. The renderer does depend on LVGL and its configured fonts.
+The Google browser adapter is not ESP32 authentication code. The ESP32 still needs its
+own data adapter, panel-specific refresh driver, six-colour quantisation, power/memory
+configuration and button wiring. [Architecture and porting](docs/ARCHITECTURE.md) describes
+those boundaries. Source reuse does not make this a tested firmware image.
 
-The Python OAuth, Google API, time-zone, caching, and event-normalisation code is **not ESP32 firmware**. The desktop adapter deliberately uses full 32-bit buffers and is not the board's eventual memory configuration. An ESP32 port still needs a data/authentication strategy, panel driver, allocation/PSRAM work, bounded rendering buffers, panel-specific six-colour packing, refresh scheduling, and hardware testing. This is more than replacing one driver file.
+## Licence
 
-## Project map
-
-```text
-main.py                   Entry point
-setup.sh / run.sh         Build and launch scripts
-Paperweek.command         Optional Mac Terminal launcher
-lv_conf.h                 Desktop LVGL configuration
-app/auth.py               Desktop OAuth and macOS Keychain
-app/google_source.py      Read-only Calendar API + pagination
-app/model.py              Calendar semantics and weekly view
-app/cli.py                Wizard, background fetcher, native launcher
-app/export.py             Framebuffer-to-PNG conversion
-native/calendar_ui.c      Reusable LVGL layout
-native/view_model.h       Bounded, pure-C view structure
-native/view_reader.cpp    Desktop input-file reader
-native/main.cpp           SDL, keys, six-colour conversion, frame export
-examples/                 Invented sample view data
-tests/                   Python and C++ tests
-docs/                    Google setup, security, architecture, testing
-```
-
-## Known limits
-
-This is a weekly, read-only, single-account prototype. It does not implement editing, drag-and-drop, month/fortnight views, weather, meals, notifications, or ESP32 firmware. The included font configuration uses LVGL's built-in Latin/ASCII-focused fonts. Accents and common punctuation are simplified for this first version; unsupported scripts and emoji become `?`. The original non-private Unicode event text remains in the local event model, so broader font support can be added later.
-
-Refresh uses full-week queries, not push notifications or incremental sync. Cache retention is bounded to twelve snapshots. Existing screenshots are not deleted by disconnecting. Closing during a Google request may leave Terminal waiting for the bounded in-flight network request to finish. This is not intended as the sole record of a time-critical appointment.
-
-## Tests and reference documentation
-
-See `docs/TESTING.md` for exact checks completed and the untested integration boundaries. See `docs/SOURCES.md` for the official Google, LVGL, and Homebrew references used for this implementation. `docs/SECURITY.md` explains token storage and local cached data.
-
-The source in this project is MIT-licensed. Third-party dependencies keep their own licences and are fetched during setup; no third-party font files or credentials are included in the download.
+Paperweek code: MIT. Third-party components retain their own licences; see
+[Third-party notices](docs/THIRD_PARTY.md). No endorsement by Google, LVGL or any hardware vendor
+is implied. Do not rely on a prototype display as the sole reminder for critical commitments.

@@ -1,0 +1,23 @@
+# Choose ONE overlay: compose.npm.yml (shared Docker host) or compose.lan.yml.
+name: paperweek
+services:
+  paperweek:
+    image: paperweek-web:local
+    build:
+      context: .
+      args:
+        NGINX_IMAGE: ${NGINX_IMAGE:-nginxinc/nginx-unprivileged:stable-alpine}
+    restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 128m
+    cpus: 0.50
+    expose:
+      - "8080"

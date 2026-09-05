@@ -1,0 +1,12 @@
+# NPM and Paperweek must be on the SAME Docker engine for this option.
+# Set NPM_NETWORK to an existing network that already contains NPM.
+services:
+  paperweek:
+    networks:
+      proxy:
+        aliases:
+          - paperweek
+networks:
+  proxy:
+    external: true
+    name: ${NPM_NETWORK:?Set NPM_NETWORK in .env to the existing NPM network}

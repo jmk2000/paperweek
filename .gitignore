@@ -1,14 +1,27 @@
-.venv/
-build/
-build-*/
+# Toolchains, builds and local dependencies
+/build/
+/dist-*/
+/.cache/
+/.venv/
+/node_modules/
+/emsdk/
 __pycache__/
 *.pyc
 .DS_Store
+# Household settings, OAuth material, calendar data and private exports
+*.private.*
+.env
+.env.*
+!.env.example
 credentials*.json
 client_secret*.json
 token*.json
-.env
-exports/
-*.ppm
-family-preview.png
-my-week.png
+*.pem
+*.key
+config.local.json
+settings.local.json
+*.ics
+/private/
+/local-data/
+/screenshots/
+/test-results/

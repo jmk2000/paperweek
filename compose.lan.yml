@@ -1,0 +1,8 @@
+# Use when NPM is in a different VM/host, or is not a Docker container.
+# Default binding is intentionally loopback-only. For a remote NPM, explicitly
+# set PAPERWEEK_BIND_IP to this Docker guest's PRIVATE LAN IPv4 address.
+# Restrict this published port to the proxy at your network/Docker firewall.
+services:
+  paperweek:
+    ports:
+      - "${PAPERWEEK_BIND_IP:-127.0.0.1}:${PAPERWEEK_HOST_PORT:-8080}:8080"
