@@ -34,7 +34,7 @@ PASSWORD='component test administrator password'
 
 
 def bundle(entry):
-    modules=['config','dates','events','renderer','backend-client',entry]
+    modules=['display-controls','config','dates','events','renderer','backend-client',entry]
     result=['globalThis.__modules={};']
     for name in modules:
         s=(ROOT/'web'/f'{name}.mjs').read_text()
@@ -72,6 +72,7 @@ def mount(page, entry, client, origin):
     };
     """.replace('@WASM@',wasm))
     page.add_script_tag(content=bundle(entry))
+    page.evaluate("globalThis.__app")
 
 
 def main():
@@ -130,7 +131,7 @@ def main():
                 page.locator('[name="title"]').fill('Our household calendar')
                 page.locator('#config-form [name="timezone"]').fill('Europe/London')
                 page.locator('#config-form button[type="submit"]').click()
-                page.wait_for_function("document.querySelector('#save-state').textContent.startsWith('Saved')")
+                page.wait_for_function("document.querySelector('#notice').textContent.includes('Shared settings saved')")
                 check(admin_client.get('/api/admin/config').json()['config']['timezone']=='Europe/London','shared config persisted through HTTP')
                 # Additional source form uses a fake feed transport but real
                 # parser, API, encrypted storage, preview and rule classification.

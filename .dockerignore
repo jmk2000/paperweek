@@ -1,6 +1,7 @@
 # Start by denying everything; Dockerfile sees only these reviewed source trees.
 **
 !Dockerfile
+!package.json
 !backend/
 !backend/**
 !core/

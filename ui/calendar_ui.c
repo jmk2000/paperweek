@@ -3,9 +3,9 @@
 #include <stdio.h>
 #include <string.h>
 
-static int web_height;
-void pw_ui_web_height(int height) { web_height=height; }
-static int grid_bottom(void) { return web_height ? web_height-90 : 1035; }
+static int web_height,web_width;
+void pw_ui_web_size(int height,int width) { web_height=height;web_width=width; }
+static int grid_bottom(void) { return 1035; }
 
 /* Representative colours only; not a calibrated Spectra 6 proof. */
 uint32_t pw_palette_rgb(pw_colour c, bool paper) {
@@ -63,7 +63,7 @@ static void week_view(const pw_view *v) {
         else rect(x,380,194,1,PW_BLACK);
         if(day->count==0) txt(x+3,429,187,65,strcmp(v->mode,"unavailable")==0 ? "Calendar not\nloaded yet" : "No events",20,PW_BLACK);
         for(unsigned i=0; i<day->count; ++i) {
-            const pw_item *item=&day->items[i]; int y=421+(int)i*(web_height?(grid_bottom()-421-30)/6:96);
+            const pw_item *item=&day->items[i]; int y=421+(int)i*96;
             rect(x,y+2,5,82,item->colour);
             txt(x+13,y,180,25,item->time,20,PW_BLACK);
             txt(x+13,y+26,180,52,item->title,20,PW_BLACK);
@@ -100,7 +100,7 @@ static void month_view(const pw_view *v) {
         else txt(x+4,y+8,48,32,day->number,24,PW_BLACK);
         if(!day->in_month) txt(x+43,y+13,33,23,day->month,14,PW_BLACK);
         if(v->rota_owner[0]) shift(x+82,y+10,116,day,v,true);
-        int step=web_height && height>=240?46:21;
+        int step=21;
         for(unsigned n=0; n<day->count; ++n) compact_entry(x+4,y+40+(int)n*step,step>21?43:23,&day->items[n]);
         if(day->overflow) {
             char more[32]; snprintf(more,sizeof more,"+%u more",day->overflow);
@@ -128,8 +128,94 @@ static void controls(const pw_view *v, bool overlay, bool persistent) {
         rect(centre-6,1184,12,2,PW_BLACK); rect(centre-4,1187,8,2,PW_BLACK); rect(centre-2,1190,4,2,PW_BLACK);
     }
 }
+/* Web text uses two drawing pixels per CSS pixel, independent of aspect ratio. */
+static void web_rota(const pw_day *d,const pw_view *v,int x,int y,int w) {
+    if(!v->rota_owner[0] || d->rota==PW_ROTA_OFF || d->rota==PW_ROTA_UNKNOWN) return;
+    bool conflict=d->rota==PW_ROTA_CONFLICT;
+    rect(x,y,w,32,conflict?PW_RED:v->rota_colour);
+    centred(x+2,y+4,w-4,26,conflict?"CHECK":d->rota==PW_ROTA_ONCALL?"WORK+C":"WORK",20,
+        !conflict && v->rota_colour==PW_YELLOW?PW_BLACK:PW_WHITE);
+}
+static void web_view(const pw_view *v) {
+    int w=web_width,h=web_height,pad=16;
+    bool portrait=h>w;
+    /* Reserve the top-right corner for the native-sized Menu button. */
+    txt(pad,12,w-180,60,v->month,48,PW_BLACK);
+    char range[100];
+    if(v->is_month) snprintf(range,sizeof range,"Today: %s",v->today);
+    else snprintf(range,sizeof range,"%s %s - %s %s",v->days[0].number,v->days[0].month,v->days[6].number,v->days[6].month);
+    txt(pad,74,w-32,40,range,32,PW_BLACK);
+    int cols=portrait?2:(int)v->calendar_count;
+    int legend_rows=((int)v->calendar_count+cols-1)/cols;
+    for(unsigned i=0;i<v->calendar_count;++i) {
+        int x=pad+(int)(i%cols)*(w-32)/cols,y=122+(int)(i/cols)*36;
+        rect(x,y+3,24,24,v->calendars[i].colour);
+        centred(x,y+4,24,24,v->calendars[i].badge,16,v->calendars[i].colour==PW_YELLOW?PW_BLACK:PW_WHITE);
+        txt(x+32,y,(w-32)/cols-40,32,v->calendars[i].name,24,PW_BLACK);
+    }
+    int top=122+legend_rows*36;
+    if(v->rota_owner[0]) {
+        txt(pad,top,w-32,30,v->stale || strcmp(v->mode,"unavailable")==0?
+            "Rota incomplete - blank days unconfirmed":"Blank rota = off (assumed) / C = on-call",24,PW_BLACK);
+        top+=36;
+    }
+    if(v->is_month) {
+        int cell=(w-2*pad)/7;
+        for(int d=0;d<7;++d)centred(pad+d*cell,top,cell,30,v->days[d].dow,24,PW_BLACK);
+        top+=36;
+        int row=(h-top-8)/(int)v->rows;
+        for(unsigned i=0;i<v->day_count;++i) {
+            const pw_day *d=&v->days[i];int x=pad+(int)(i%7)*cell,y=top+(int)(i/7)*row;
+            rect(x,y,cell,1,PW_BLACK);if(i%7)rect(x,y,1,row,PW_BLACK);
+            int size=row<70?32:40;
+            if(d->today){rect(x+4,y+5,52,size+8,PW_BLACK);centred(x+4,y+6,52,size+8,d->number,size,PW_WHITE);}
+            else txt(x+6,y+6,cell-12,size+8,d->number,size,PW_BLACK);
+            int content=y+58;
+            if(!d->in_month && row>=120){txt(x+6,content,cell-12,26,d->month,20,PW_BLACK);content+=28;}
+            if(v->rota_owner[0] && d->rota>=PW_ROTA_WORK){
+                if(row<120 && cell>=160)web_rota(d,v,x+64,y+8,cell-70);
+                else {web_rota(d,v,x+5,content,cell-10);content+=38;}
+            }
+            int space=y+row-content-32,capacity=space>0?space/58:0;
+            unsigned shown=d->count<(unsigned)capacity?d->count:(unsigned)capacity;
+            for(unsigned n=0;n<shown;++n) {
+                const pw_item *item=&d->items[n];int iy=content+(int)n*58;
+                char text[256];snprintf(text,sizeof text,"%s%s%s",item->all_day?"":item->time,item->all_day?"":" ",item->title);
+                rect(x+5,iy+3,4,46,item->colour);
+                txt(x+13,iy,cell-18,54,text,24,PW_BLACK);
+            }
+            unsigned more=d->overflow+d->count-shown;
+            if(more){char text[24];snprintf(text,sizeof text,"+%u",more);txt(x+6,y+row-28,cell-12,28,text,24,PW_BLACK);}
+        }
+    } else {
+        int cell=portrait?w-2*pad:(w-2*pad)/7;
+        int row=portrait?(h-top-8)/7:h-top-8;
+        for(unsigned i=0;i<7;++i) {
+            const pw_day *d=&v->days[i];int x=pad+(portrait?0:(int)i*cell),y=top+(portrait?(int)i*row:0);
+            rect(x,y,cell,1,PW_BLACK);if(!portrait && i)rect(x,y,1,row,PW_BLACK);
+            int datew=portrait?154:cell;
+            txt(x+8,y+8,datew-12,32,d->dow,24,PW_BLACK);
+            if(d->today){rect(x+6,y+42,60,52,PW_BLACK);centred(x+6,y+44,60,52,d->number,48,PW_WHITE);}
+            else txt(x+8,y+42,datew-12,56,d->number,48,PW_BLACK);
+            txt(x+8,y+100,datew-12,28,d->month,24,PW_BLACK);
+            int ex=portrait?x+datew:x+8,ey=portrait?y+8:y+140,ew=portrait?cell-datew-8:cell-16;
+            if(v->rota_owner[0] && d->rota>=PW_ROTA_WORK){web_rota(d,v,ex,ey,ew);ey+=40;}
+            int space=y+row-ey-30,capacity=space>0?space/62:0;
+            unsigned shown=d->count<(unsigned)capacity?d->count:(unsigned)capacity;
+            for(unsigned n=0;n<shown;++n) {
+                const pw_item *item=&d->items[n];char text[256];
+                snprintf(text,sizeof text,"%s%s%s",item->all_day?"":item->time,item->all_day?"":" ",item->title);
+                rect(ex,ey+4,6,48,item->colour);txt(ex+14,ey,ew-14,58,text,24,PW_BLACK);ey+=62;
+            }
+            unsigned more=d->overflow+d->count-shown;
+            if(more){char text[40];snprintf(text,sizeof text,"+%u more in agenda",more);txt(ex,y+row-28,ew,28,text,24,PW_BLACK);}
+            if(!d->count && !v->stale && strcmp(v->mode,"unavailable")!=0)txt(ex,ey,ew,32,"No events",24,PW_BLACK);
+        }
+    }
+}
 void pw_ui_render_ex(const pw_view *v,bool paper,bool overlay,bool persistent) {
     pw_draw_begin(paper);
+    if(web_height){web_view(v);pw_draw_end();return;}
     txt(44,29,1100,25,"P A P E R W E E K  /  SHARED CALENDAR",16,PW_BLACK);
     txt(41,72,1035,65,v->is_month?v->month:v->title,48,PW_BLACK);
     right(1000,83,553,40,v->is_month?"AT A GLANCE":v->month,24);

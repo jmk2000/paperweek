@@ -91,10 +91,10 @@ function webRenderer(call,type,canvas,info){
   let sized=false;
   const resize=()=>{
     const bounds=canvas.parentElement.getBoundingClientRect();
-    const height=Math.max(1125,Math.min(2600,Math.round(1600*bounds.height/bounds.width)));
-    if(sized&&canvas.height===height)return;
+    const width=Math.max(1,Math.round(bounds.width*2)),height=Math.max(1,Math.round(bounds.height*2));
+    if(sized&&canvas.height===height&&canvas.width===width)return;
     sized=true;
-    canvas.height=height;call('pw_viewport',height);
+    canvas.width=width;canvas.height=height;call('pw_viewport',height,width);
     if(renderer.config)renderer.draw();
   };
   resize();new ResizeObserver(resize).observe(canvas.parentElement);

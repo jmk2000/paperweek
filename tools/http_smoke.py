@@ -33,6 +33,16 @@ def main():
    assert pixel>1000,'Calendar text did not render'
    page.locator('[data-nav="2"]').click();page.wait_for_timeout(200)
    assert 'Month view' in page.locator('[data-nav="2"] span').inner_text()
+   manifest=page.evaluate("fetch('./manifest.webmanifest').then(r=>r.json())")
+   assert manifest['display']=='standalone'
+   assert any('maskable' in icon.get('purpose','') for icon in manifest['icons'])
+   page.evaluate("navigator.serviceWorker.ready.then(()=>true)")
+   page.reload(wait_until='networkidle')
+   page.wait_for_function("document.documentElement.dataset.ready==='true'")
+   page.context.set_offline(True)
+   page.reload(wait_until='load')
+   page.wait_for_function("document.documentElement.dataset.ready==='true'")
+   assert page.locator('#agenda-text li').count()>0,'Cached app shell failed offline'
    assert not errors,errors
    browser.close()
   print(f'{args.backend} real HTTP renderer smoke test passed')

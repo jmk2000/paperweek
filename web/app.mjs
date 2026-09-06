@@ -81,7 +81,7 @@ async function navigate(index){
   const result=renderer.press(performance.now(),busy);
   if(result===1)return helpPaint();if(result!==2)return;
   if(index===0||index===3)followToday=false;else if(index===1)followToday=true;
-  renderer.navigate(index);await load('navigation');
+  const previous=renderer.anchor;renderer.navigate(index);await load('navigation');return renderer.anchor!==previous;
 }
 function inputLabel(text,input){const label=document.createElement('label');label.textContent=text;label.append(input);return label;}
 function field(tag,value,name){const el=document.createElement(tag);el.dataset.field=name;el.value=value;return el;}
@@ -163,9 +163,9 @@ $('revoke').onclick=async()=>{if(!googleSource.connected){note('There is no acti
 $('export-screen').onclick=()=>{if(config.source==='google'&&!confirm('This image may contain private calendar information. Save it locally?'))return;$('calendar').toBlob(blob=>{if(blob)download(blob,'paperweek-display.private.png');},'image/png');};
 $('refresh').onclick=()=>load('manual');
 $('wake').onclick=async()=>{wantWake=!wantWake;if(wantWake)await keepAwake();else{await wake?.release();wake=null;$('wake').textContent='Keep awake';}};
-setupDisplay(navigate,say);showBuild();
-for(const b of document.querySelectorAll('[data-nav]'))b.onclick=()=>navigate(Number(b.dataset.nav));
-document.addEventListener('keydown',e=>{if(dialog.open||['INPUT','SELECT','TEXTAREA','BUTTON'].includes(document.activeElement?.tagName))return;const map={ArrowLeft:0,ArrowRight:3,t:1,T:1,m:2,M:2,'1':0,'2':1,'3':2,'4':3};if(Object.hasOwn(map,e.key)){e.preventDefault();navigate(map[e.key]);}});
+const displayNavigate=setupDisplay(navigate,say);showBuild();
+for(const b of document.querySelectorAll('[data-nav]'))b.onclick=()=>displayNavigate(Number(b.dataset.nav));
+document.addEventListener('keydown',e=>{if(dialog.open||['INPUT','SELECT','TEXTAREA','BUTTON'].includes(document.activeElement?.tagName))return;const map={ArrowLeft:0,ArrowRight:3,t:1,T:1,m:2,M:2,'1':0,'2':1,'3':2,'4':3};if(Object.hasOwn(map,e.key)){e.preventDefault();displayNavigate(map[e.key]);}});
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){keepAwake();if(renderer&&!busy)load('resume');}});
 window.addEventListener('online',()=>{if(renderer&&!busy)load('online');});
 window.addEventListener('offline',()=>{if(config.source==='google'){staleData=true;say('Offline. Previously loaded data remains in memory only; reload requires a new connection.',true);}});

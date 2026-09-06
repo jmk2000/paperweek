@@ -10,7 +10,7 @@ IMPORT("text") void web_text(int x,int y,int w,int h,const char *text,int size,u
 IMPORT("end") void web_end(void);
 static bool paper;
 void pw_platform_init(void){}
-void pw_platform_resize(int height){(void)height;}
+void pw_platform_resize(int height,int width){(void)height;(void)width;}
 void pw_platform_present(void){}
 void pw_draw_begin(bool p){paper=p;web_begin(p);}
 void pw_draw_rect(int x,int y,int w,int h,pw_colour c){web_rect(x,y,w,h,pw_palette_rgb(c,paper));}

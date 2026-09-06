@@ -29,3 +29,18 @@
 
 Not included: Google writes, photo importer, voice integration, real ESP32 hardware driver or a verified
 LVGL build. Review docs/TESTING.md for executed checks and external deployment boundaries.
+
+### Web display and tablet installation
+
+- Drag/swipe and previous/next controls slide calendar views together; reduced-motion preferences are respected.
+- The display fits the viewport without page scrolling. Short landscape screens use a compact header and overflow counts; the text agenda and settings scroll in their own panels.
+- Menu → Install app opens the browser install prompt where supported, with home-screen instructions otherwise. Added a maskable calendar icon and an Apple touch icon.
+- The backend already stores settings and calendar windows in SQLite with WAL, revision checks and atomic settings updates. No database migration is needed. PWA caching still stores only public app assets; private offline snapshots remain opt-in.
+
+Install from the HTTPS deployment on a tablet. Android: Menu → Install app (or the browser's Install app option). iPad: Safari → Share → Add to Home Screen. Rebuild/redeploy the web package to deliver these changes to existing installations.
+
+### Readable phone calendar
+
+- Web text now sizes against CSS pixels instead of shrinking a fixed 1600-pixel canvas. The visible month/year, week range and day numbers stay prominent.
+- Portrait week view uses seven stacked day rows. The calendar replaces the duplicate branding header; navigation and agenda share one bottom row, with sync details in the agenda and warnings still visible.
+- On the web display, blank rota means assumed off when loaded without warnings. Empty and explicit OFF boxes are omitted. Unavailable, stale or warning-bearing data is labelled unconfirmed; WORK, on-call and conflicts remain visible. Source data and the physical e-paper layout are unchanged.

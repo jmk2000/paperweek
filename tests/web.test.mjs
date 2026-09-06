@@ -50,8 +50,8 @@ test('partial cross-calendar responses are never returned',async()=>{const c=def
 test('401 clears token and asks to reconnect',async()=>{const g=new GoogleSource(async()=>new Response('',{status:401}));g.acceptToken('mock-token',3600);await assert.rejects(g.calendars(),ReconnectError);assert.ok(!g.connected);});
 test('repeated pagination token is rejected',async()=>{const g=new GoogleSource(async()=>Response.json({items:[],nextPageToken:'repeat'}));g.acceptToken('mock-token',3600);await assert.rejects(g.calendars(),/pagination/);});
 test('arbitrary endpoints cannot receive bearer credentials',async()=>{let calls=0;const g=new GoogleSource(async()=>{++calls;return Response.json({})});g.acceptToken('mock-token',3600);await assert.rejects(g.request('https://example.com/'),/Refusing/);assert.equal(calls,0);});
-async function wasm(){const buffer=await fs.readFile(new URL('../dist-preview/paperweek-preview.wasm',import.meta.url));let instance;const texts=[],decoder=new TextDecoder(),encoder=new TextEncoder();const string=ptr=>{const h=new Uint8Array(instance.exports.memory.buffer);let end=ptr;while(h[end])++end;return decoder.decode(h.subarray(ptr,end));};({instance}=await WebAssembly.instantiate(buffer,{paperweek:{begin(){texts.length=0;},rect(){},text(x,y,w,h,p){texts.push(string(p));},end(){}}}));
-  const call=(name,...args)=>{let p=instance.exports.pw_input_buffer();const heap=new Uint8Array(instance.exports.memory.buffer);const values=args.map(v=>{if(typeof v!=='string')return v;const b=encoder.encode(v),a=p;heap.set(b,p);p+=b.length;heap[p++]=0;return a;});return instance.exports[name](...values);};call('pw_init');return {r:new Renderer(call,'test',null),texts};}
+async function wasm(){const buffer=await fs.readFile(new URL('../dist-preview/paperweek-preview.wasm',import.meta.url));let instance;const texts=[],draws=[],decoder=new TextDecoder(),encoder=new TextEncoder();const string=ptr=>{const h=new Uint8Array(instance.exports.memory.buffer);let end=ptr;while(h[end])++end;return decoder.decode(h.subarray(ptr,end));};({instance}=await WebAssembly.instantiate(buffer,{paperweek:{begin(){texts.length=0;draws.length=0;},rect(){},text(x,y,w,h,p,size){texts.push(string(p));draws.push({x,y,w,h,size,text:string(p)});},end(){}}}));
+  const call=(name,...args)=>{let p=instance.exports.pw_input_buffer();const heap=new Uint8Array(instance.exports.memory.buffer);const values=args.map(v=>{if(typeof v!=='string')return v;const b=encoder.encode(v),a=p;heap.set(b,p);p+=b.length;heap[p++]=0;return a;});return instance.exports[name](...values);};call('pw_init');return {r:new Renderer(call,'test',null),texts,draws};}
 test('actual WASM renders names from configuration, not hard-coded labels',async()=>{const {r,texts}=await wasm();const c=defaults();c.members[0].label='Household A';r.configure(c);const d=ordinal('2026-10-04');r.clock(d,3600);r.select(d,false);r.events(demoEvents(r.range.first,r.range.count,c));r.render('demo','DEMO');assert.ok(texts.includes('Household A'));assert.ok(!texts.includes('Adult 1'));assert.equal(r.call('pw_day_count'),7);});
 test('actual WASM month navigation preserves dates and clamps month end',async()=>{const {r}=await wasm();r.configure(defaults());r.select(ordinal('2026-01-31'),true);r.navigate(3);assert.equal(isoDay(r.anchor),'2026-02-28');r.navigate(2);assert.equal(r.month,false);assert.equal(isoDay(r.anchor),'2026-02-28');});
 test('actual WASM model hash does not depend on poll timestamp',async()=>{const {r}=await wasm();const c=defaults();r.configure(c);const d=ordinal('2026-10-01');r.clock(d,0);r.select(d,true);r.events(demoEvents(r.range.first,r.range.count,c));const a=r.prepare('demo','DEMO');r.clock(d,1);assert.equal(r.prepare('demo','DEMO'),a);assert.notEqual(r.prepare('demo','STALE',true),a);});
@@ -69,4 +69,30 @@ test('web viewport removes hardware labels and touch navigation acts immediately
   r.call('pw_viewport',1900);r.select(ordinal('2026-09-05'),true);r.clock(ordinal('2026-09-05'),0);r.events([]);r.render('demo','DEMO');
   assert.ok(!texts.some(t=>t.includes('PREVIOUS')||t.includes('frame button')));
   assert.equal(r.press(0,false),2);
+});
+
+test('short landscape calendars retain overflow in the text agenda rather than overprint',async()=>{
+  const {r,texts}=await wasm();const c=defaults();r.canvas={};r.configure(c);
+  const day=ordinal('2026-08-01');r.clock(day,0);r.select(day,true);r.call('pw_viewport',460);
+  r.events(demoEvents(r.range.first,r.range.count,c));r.render('demo','DEMO');
+  assert.ok(texts.includes('August 2026'));
+  assert.ok(texts.some(t=>/^\+\d/.test(t)));
+  r.select(day,false);r.events(demoEvents(r.range.first,r.range.count,c));r.render('demo','DEMO');
+  assert.ok(texts.some(t=>t.includes('more in agenda')));
+});
+
+test('phone dates remain readable and blank rota means assumed off only in a healthy view',async()=>{
+  const {r,texts,draws}=await wasm();r.configure(defaults());const day=ordinal('2026-09-06');
+  r.clock(day,0);r.select(day,true);r.call('pw_viewport',1742,824);r.events([]);r.render('demo','DEMO');
+  assert.ok(texts.includes('Blank rota = off (assumed) / C = on-call'));
+  assert.ok(!texts.some(t=>t==='? ROTA'||t==='OFF'));
+  assert.equal(draws.find(d=>d.text==='September 2026').size,48);
+  assert.ok(draws.filter(d=>/^\d{1,2}$/.test(d.text)&&d.y>200).every(d=>d.size>=32));
+  r.render('google','SYNC FAILED',true);
+  assert.ok(texts.includes('Rota incomplete - blank days unconfirmed'));
+  assert.ok(!texts.includes('Blank rota = off (assumed) / C = on-call'));
+  r.select(day,false);r.render('demo','DEMO');
+  const days=draws.filter(d=>['MON','TUE','WED','THU','FRI','SAT','SUN'].includes(d.text));
+  assert.equal(new Set(days.map(d=>d.x)).size,1);
+  assert.equal(new Set(days.map(d=>d.y)).size,7);
 });

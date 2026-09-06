@@ -57,14 +57,14 @@ async function useSnapshot(snapshot,offline=false){
     // Offline copies only cover the saved view; never display a falsely empty month.
     renderer.select(snapshot.anchor??ordinal(snapshot.first)+7,snapshot.month??true);
   }
-  const events=expand(snapshot);renderer.events(events);stale=offline||snapshot.stale;
+  const events=expand(snapshot);renderer.events(events);stale=offline||snapshot.stale||Boolean(snapshot.warnings);
   await paint();agenda(events);lastGood={snapshot,events,anchor:renderer.anchor,month:renderer.month,today:now().day};
   if(!offline&&prefs.offline&&auth){try{cacheSnapshot({...snapshot,anchor:renderer.anchor,month:renderer.month},auth.expires);}catch{say('View loaded, but offline storage is unavailable.',true);}}
   const stamp=snapshot.lastSuccess?new Date(snapshot.lastSuccess*1000).toLocaleString():'';
   if(offline)say('SERVER UNREACHABLE · Showing the saved view; it may be out of date.',true);
   else if(config.source==='demo')say('Invented demo events · Configure Google calendars in Administration');
-  else if(stale)say(`${snapshot.connection==='connected'?'Source sync delayed': 'Google '+snapshot.connection.replaceAll('_',' ')} · Last complete source sync ${stamp||'unavailable'}`,true);
   else if(snapshot.warnings)say('Source needs review: some rota entries were not classified, or the feed reported a warning. Check administration.',true);
+  else if(stale)say(`${snapshot.connection==='connected'?'Source sync delayed': 'Google '+snapshot.connection.replaceAll('_',' ')} · Last complete source sync ${stamp||'unavailable'}`,true);
   else if(snapshot.unmappedMembers?.length)say('Some configured people have no linked live source. Check administration.',true);
   else say(`Google synced ${stamp} · Server checks Google every ${config.pollMinutes} min`);
 }
@@ -101,7 +101,7 @@ async function navigate(index){
   if(action===1){setBusy(true);try{await paint(true);}finally{setBusy(false);}return;}
   if(action!==2)return;
   if(index===0||index===3)followToday=false;else if(index===1)followToday=true;
-  renderer.navigate(index);await load();
+  const previous=renderer.anchor;renderer.navigate(index);await load();return renderer.anchor!==previous;
 }
 async function keepAwake(){
   if(!prefs.wake||document.visibilityState!=='visible')return;
@@ -114,9 +114,9 @@ $('offline-copy').onchange=()=>{prefs.offline=$('offline-copy').checked;setPrefe
 $('pair-form').onsubmit=async e=>{e.preventDefault();$('pair-message').textContent='Pairing…';try{await api('/api/pair',{method:'POST',body:{code:$('pair-code').value}});auth=await api('/api/session');$('pair-code').value='';$('pair-dialog').close();await load();}catch(e){$('pair-message').textContent=e.message;}};
 $('forget-device').onclick=async()=>{if(!confirm('Unpair this browser and remove its saved offline calendar?'))return;clearOffline();try{await api('/api/logout',{method:'POST'});}catch{}requirePair();};
 $('refresh').onclick=load;
-setupDisplay(navigate,say);showBuild();
-for(const b of document.querySelectorAll('[data-nav]'))b.onclick=()=>navigate(Number(b.dataset.nav));
-document.addEventListener('keydown',e=>{if($('pair-dialog').open||['INPUT','BUTTON','SELECT'].includes(document.activeElement?.tagName))return;const map={ArrowLeft:0,ArrowRight:3,t:1,T:1,m:2,M:2,'1':0,'2':1,'3':2,'4':3};if(Object.hasOwn(map,e.key)){e.preventDefault();navigate(map[e.key]);}});
+const displayNavigate=setupDisplay(navigate,say);showBuild();
+for(const b of document.querySelectorAll('[data-nav]'))b.onclick=()=>displayNavigate(Number(b.dataset.nav));
+document.addEventListener('keydown',e=>{if($('pair-dialog').open||['INPUT','BUTTON','SELECT'].includes(document.activeElement?.tagName))return;const map={ArrowLeft:0,ArrowRight:3,t:1,T:1,m:2,M:2,'1':0,'2':1,'3':2,'4':3};if(Object.hasOwn(map,e.key)){e.preventDefault();displayNavigate(map[e.key]);}});
 window.addEventListener('online',()=>load());
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){keepAwake();if(renderer&&!busy)load();}});
 setInterval(async()=>{

@@ -5,7 +5,8 @@
   <meta name="theme-color" content="#f2f1ed"><meta name="description" content="A configurable shared calendar, built around portable C and WebAssembly.">
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://accounts.google.com/gsi/client; style-src 'self' https://accounts.google.com/gsi/style; img-src 'self' data:; connect-src 'self' https://www.googleapis.com https://accounts.google.com/gsi/; frame-src https://accounts.google.com/gsi/; object-src 'none'; base-uri 'self'; form-action 'none'">
-  <title>Paperweek</title><link rel="manifest" href="./manifest.webmanifest"><link rel="icon" href="./icon.svg" type="image/svg+xml"><link rel="stylesheet" href="./styles.css">
+  <link rel="apple-touch-icon" href="./icon-192.png"><meta name="apple-mobile-web-app-title" content="Paperweek">
+<title>Paperweek</title><link rel="manifest" href="./manifest.webmanifest"><link rel="icon" href="./icon.svg" type="image/svg+xml"><link rel="stylesheet" href="./styles.css">
 </head>
 <body class="web-display">
 <header class="topbar">
@@ -16,7 +17,7 @@
   <div class="screen-wrap"><canvas id="calendar" width="1600" height="1200" aria-label="Shared calendar. Use the accessible agenda below for event text."></canvas></div>
   <nav class="frame-controls" aria-label="Calendar navigation"><button data-nav="0" aria-label="Previous period"><span>Previous</span></button><button data-nav="1" aria-label="Go to today"><span>Today</span></button><button data-nav="2" aria-label="Switch week or month"><span>Week / month</span></button><button data-nav="3" aria-label="Next period"><span>Next</span></button></nav>
   <div class="statusline"><span id="source-badge" class="badge">DEMO</span><span id="message" role="status" aria-live="polite">Starting…</span></div>
-  <details class="agenda"><summary>Accessible agenda &amp; display notes</summary><p id="screen-notes">Swipe left for the next period and right for the previous period. Screen colours and physical size are not calibrated to an e-paper panel.</p><p data-build></p><div id="agenda-text"></div></details>
+  <details class="agenda"><summary>Agenda</summary><p id="screen-notes">Swipe left for the next period and right for the previous period. Screen colours and physical size are not calibrated to an e-paper panel.</p><p data-build></p><div id="agenda-text"></div></details>
 </main>
 <dialog id="settings">
   <form id="settings-form">
