@@ -1,3 +1,4 @@
+import {createSchoolEditor} from './school-editor.mjs';
 import {showBuild} from './display-controls.mjs';
 import {defaults,validateConfig} from './config.mjs';
 import {api,clearOffline} from './backend-client.mjs';
@@ -5,6 +6,7 @@ const $=id=>document.getElementById(id),form=$('config-form');
 let config=defaults(),revision=1,calendars=[],logged=false,dirty=false;
 let sources=[],editingSource=null,sourceDirty=false;
 const sourceForm=$('source-form');
+const schoolEditor=createSchoolEditor($('school-editor'),readMembers,()=>{dirty=true;$('save-state').textContent='Unsaved school changes';},()=>form.elements.timezone.value);
 function notice(message,error=false){$('notice').textContent=message;$('notice').classList.toggle('error',error);}
 function element(tag,text){const e=document.createElement(tag);if(text!==undefined)e.textContent=text;return e;}
 function opt(value,label){const e=element('option',label);e.value=value;return e;}
@@ -20,7 +22,7 @@ function drawMembers(){
     const badge=field('input','badge',m.badge);badge.maxLength=2;badge.required=true;
     const colour=field('select','colour',m.colour);for(const c of ['blue','green','red','yellow','black'])colour.append(opt(c,c));colour.value=m.colour;
     const remove=element('button','−');remove.type='button';remove.className='remove-member';remove.setAttribute('aria-label',`Remove ${m.label}`);remove.disabled=config.members.length===1;
-    remove.onclick=()=>{if(sources.some(s=>s.member===m.key)&&!confirm(`Remove ${m.label}? Saving the shared settings will also remove their attached sources and local cache, but never provider events.`))return;config.members=readMembers().filter(x=>x.key!==m.key);if(config.rotaMember===m.key)config.rotaMember='';dirty=true;drawMembers();};
+    remove.onclick=()=>{if(schoolEditor.hasMember(m.key))return notice('Remove this person’s school profile before removing the person.',true);if(sources.some(s=>s.member===m.key)&&!confirm(`Remove ${m.label}? Saving the shared settings will also remove their attached sources and local cache, but never provider events.`))return;config.members=readMembers().filter(x=>x.key!==m.key);if(config.rotaMember===m.key)config.rotaMember='';dirty=true;drawMembers();};
     grid.append(labelled('Display name',name),labelled('Badge',badge),labelled('Colour',colour),remove);
     const extra=element('div');extra.className='member-extra';
     const calendar=field('select','calendarId',m.calendarId);calendar.append(opt('','No primary Google calendar'));
@@ -39,12 +41,12 @@ function drawMembers(){
   $('add-member').disabled=config.members.length>=6;
   sourceSelectors();
 }
-function fill(c){config=structuredClone(c);for(const [key,value]of Object.entries(c)){const el=form.elements[key];if(!el||key==='members'||key==='rotaMember')continue;if(el.type==='checkbox')el.checked=value;else el.value=String(value);}drawMembers();dirty=false;$('save-state').textContent='';}
+function fill(c){config=structuredClone(c);for(const [key,value]of Object.entries(c)){const el=form.elements[key];if(!el||key==='members'||key==='rotaMember')continue;if(el.type==='checkbox')el.checked=value;else el.value=String(value);}drawMembers();schoolEditor.set(c.school||[]);dirty=false;$('save-state').textContent='';}
 function read(){const c=structuredClone(config);c.members=readMembers();c.clientId='';
   for(const key of ['title','timezone','source','rotaMember','defaultView'])c[key]=form.elements[key].value;
   for(const key of ['pollMinutes','weekStart','helpSeconds','refreshSeconds'])c[key]=Number(form.elements[key].value);
   for(const key of ['paperPalette','maskPrivate','deduplicate'])c[key]=form.elements[key].checked;
-  c.persistentLabels=form.elements.persistentLabels.value==='true';return validateConfig(c);
+  c.persistentLabels=form.elements.persistentLabels.value==='true';c.school=schoolEditor.read(c.members);return validateConfig(c);
 }
 function when(t){return t?new Date(t*1000).toLocaleString():'Never';}
 async function health(){

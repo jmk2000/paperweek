@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 import shutil
 ROOT = Path(__file__).resolve().parents[1]
-ASSETS = ['index.html','styles.css','app.mjs','config.mjs','dates.mjs','events.mjs','google.mjs',
+ASSETS = ['school.mjs','school-editor.mjs','school-editor.css','planner-model.mjs','planner-renderer.mjs','planner.css','index.html','styles.css','app.mjs','config.mjs','dates.mjs','events.mjs','google.mjs',
           'renderer.mjs','display-controls.mjs','server.html','admin.html','backend-app.mjs','admin.mjs','backend-client.mjs','backend.css','manifest.webmanifest','icon.svg','icon-192.png','icon-512.png']
 def package(backend: str) -> Path:
     out = ROOT / f'dist-{backend}'

@@ -8,6 +8,7 @@ from typing import Literal
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from .school import SchoolProfile, validate_school_members, public_school
 
 
 @dataclass(frozen=True)
@@ -80,7 +81,8 @@ class DisplayConfig(BaseModel):
     title: str = Field(default='Our calendar', min_length=1, max_length=80)
     timezone: str = Field(default='UTC', min_length=1, max_length=64)
     weekStart: Literal[0, 1] = 1
-    defaultView: Literal['week', 'month'] = 'month'
+    defaultView: Literal['rolling', 'week', 'month'] = 'rolling'
+    school: list[SchoolProfile] = Field(default_factory=list, max_length=6)
     paperPalette: bool = True
     maskPrivate: bool = True
     deduplicate: bool = False
@@ -123,11 +125,13 @@ class DisplayConfig(BaseModel):
             raise ValueError('Rota member must be a configured member.')
         if any(not m.label.strip() for m in self.members):
             raise ValueError('Names cannot be blank.')
+        validate_school_members(self.school, self.members)
         self.clientId = ''
         return self
 
     def public(self):
         result = self.model_dump()
+        result['school'] = public_school(self.school, self.members)
         for m in result['members']:
             # Stable local identifiers, NOT Google calendar IDs.
             m['calendarId'] = m['key'] if self.source == 'google' else ''

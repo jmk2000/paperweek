@@ -1,7 +1,7 @@
 export function swipeAction(dx,dy,elapsed){
   return elapsed<=900&&Math.abs(dx)>=60&&Math.abs(dx)>Math.abs(dy)*1.5?(dx<0?3:0):null;
 }
-export function setupDisplay(navigate,say){
+export function setupDisplay(navigate,say,{animateNavigation=true}={}){
   const canvas=document.getElementById('calendar'),menu=document.getElementById('display-menu');
   let start=null,sliding=false,ghost=null,offset=0;
   const reduced=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -14,6 +14,7 @@ export function setupDisplay(navigate,say){
   const animate=(el,from,to)=>el.animate([{transform:`translateX(${from}px)`},{transform:`translateX(${to}px)`}],
     {duration:reduced()?0:260,easing:'cubic-bezier(.2,.7,.25,1)',fill:'forwards'});
   const move=async(index)=>{
+    if(!animateNavigation)return navigate(index);
     if(sliding||document.querySelector('[data-nav]:disabled'))return;
     if(index!==0&&index!==3){reset();return navigate(index);}
     sliding=true;
@@ -71,7 +72,18 @@ export function setupDisplay(navigate,say){
   agenda.querySelector('summary').after(health);
   agenda.addEventListener('toggle',()=>{if(agenda.open)health.textContent=document.getElementById('message').textContent;});
   const button=document.getElementById('fullscreen');
-  const update=()=>{button.textContent=document.fullscreenElement?'Exit full screen':'Full screen';button.title=button.textContent;};
+  const standalone=matchMedia('(display-mode: standalone)'),pwaFullscreen=matchMedia('(display-mode: fullscreen)');
+  const toolbar=document.querySelector('.planner-toolbar'),toolbarHome=document.createComment('Display options');
+  if(toolbar)toolbar.before(toolbarHome);
+  const update=()=>{
+    button.textContent=document.fullscreenElement?'Exit full screen':'Full screen';button.title=button.textContent;
+    if(!toolbar)return;
+    const compact=Boolean(document.fullscreenElement)||standalone.matches||pwaFullscreen.matches;
+    document.body.classList.toggle('planner-fullscreen',compact);
+    if(compact)menu.querySelector('.tools').prepend(toolbar);else toolbarHome.after(toolbar);
+    document.querySelectorAll('.school-focus-wrap').forEach(n=>n.open=!compact);
+  };
+  standalone.addEventListener('change',update);pwaFullscreen.addEventListener('change',update);
   button.onclick=async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();menu.open=false;}catch{say('Full screen is unavailable in this browser. Try adding Paperweek to your home screen.');}};
   document.addEventListener('fullscreenchange',update);update();
   menu.addEventListener('click',e=>{if(e.target.closest('#refresh'))menu.open=false;});
