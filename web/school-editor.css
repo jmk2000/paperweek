@@ -1,0 +1,10 @@
+.school-editor {margin-top:20px;border-top:1px solid #a0a498;padding-top:18px;}
+.school-editor h3 {font-size:19px;}.school-editor label {display:flex;flex-direction:column;gap:6px;font-size:12px;min-width:0;}
+.school-editor-grid {display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end;margin:12px 0;}
+.school-editor-group {border:1px solid #a0a498;border-radius:5px;padding:12px;margin:12px 0;}
+.school-editor-group>summary {min-height:44px;display:list-item;cursor:pointer;align-content:center;font-size:14px;font-weight:650;}
+.school-editor textarea {width:100%;max-width:100%;padding:10px;font:14px/1.5 monospace;border:1px solid #a0a498;border-radius:4px;resize:vertical;}
+.school-editor .school-activity {border:1px solid #a0a498;margin:14px 0;padding:12px;}.school-editor .school-activity legend {font-weight:650;font-size:14px;}
+.school-editor .school-activity>label {margin-top:12px;}.school-editor button {min-height:44px;}.school-editor .row {align-items:end;}
+@media(max-width:600px){.school-editor-grid {grid-template-columns:1fr 1fr;}.lesson-editor label:first-child {grid-column:1/-1;}.school-editor-group {padding:8px;}.school-editor {margin-left:-5px;margin-right:-5px;}}
+@media(max-width:360px){.school-editor-grid {grid-template-columns:1fr;}}

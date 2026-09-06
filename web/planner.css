@@ -1,0 +1,137 @@
+/* Content reflows; the hidden canvas is only the existing C/WASM engine host. */
+.planner-display { --paper:#faf9f4; --ink:#20251f; --rule:#a0a498; background:var(--paper); color:var(--ink); height:auto; min-height:100vh; overflow:auto; font:16px/1.45 system-ui,Arial,sans-serif; }
+.planner-display main { display:block; max-width:1920px; width:100%; padding:0 20px 20px; margin:0 auto; height:auto; overflow:visible; }
+.planner-display .topbar {position:static;height:auto;min-height:64px;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--rule);}
+.planner-display .brand {display:flex;gap:16px;align-items:baseline;}.planner-display .brand strong {font-size:21px;}.planner-display .brand #engine-label {display:none;}
+.planner-display #display-menu {position:relative;}.planner-display #display-menu>summary {position:static;min-height:44px;min-width:74px;padding:10px 16px;border:1px solid var(--rule);background:var(--paper);border-radius:4px;cursor:pointer;}
+.planner-display #display-menu[open] .tools {position:absolute;top:48px;right:0;z-index:20;min-width:270px;display:grid;padding:12px;border:2px solid var(--ink);background:var(--paper);box-shadow:none;}
+.planner-display #display-menu .tools button,.planner-display #display-menu .tools .button {font-size:15px;min-height:44px;}
+.planner-display button,.planner-display select,.planner-display summary,.planner-display .button {min-height:44px;touch-action:manipulation;}
+.planner-display button,.planner-display select {font:inherit;border:1px solid var(--rule);background:var(--paper);color:var(--ink);border-radius:4px;padding:8px 12px;box-shadow:none;}
+.planner-display :focus-visible {outline:3px solid currentColor;outline-offset:3px;}
+.planner-display button:hover {background:#efeee6;}.planner-display button:disabled {opacity:.6;}
+.planner-display .engine-only {position:absolute!important;left:-10000px!important;top:0;width:1px!important;height:1px!important;min-height:0!important;overflow:hidden;pointer-events:none;}
+.planner-toolbar {display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:14px 0;}
+.planner-display .view-picker {display:flex;flex-direction:row;align-items:center;gap:10px;font-size:14px;margin:0;font-weight:600;}
+.planner-display .view-picker select {margin:0;width:auto;max-width:100%;}
+.planner-toggles {display:flex;flex-wrap:wrap;gap:8px;}.planner-display .planner-toggles button {font-size:14px;}
+.planner-display .planner-toggles [aria-pressed=true] {border:2px solid var(--ink);font-weight:700;}
+.planner-toggles [aria-pressed=true]::before {content:'✓ ';}
+.planner-heading {display:flex;flex-wrap:wrap;justify-content:space-between;align-items:end;gap:12px;}
+.planner-kicker {font-size:12px;font-weight:650;letter-spacing:.1em;text-transform:uppercase;margin:0 0 4px;}
+.planner-display .planner-heading h1 {font-size:clamp(23px,2.7vw,36px);line-height:1.15;margin:0;letter-spacing:-.03em;}
+.planner-caption {font-size:13px;margin:0 0 2px;max-width:440px;}.planner-guidance {font-size:13px;margin:10px 0 16px;}
+.school-focus {display:grid;grid-template-columns:140px repeat(auto-fit,minmax(200px,1fr));gap:16px;padding:16px 18px;margin:16px 0 20px;border:2px solid var(--ink);border-radius:4px;}
+.focus-title {font-size:20px;margin:0;}.focus-child {min-width:0;}.focus-date {margin:0 0 4px;font-size:12px;font-weight:600;}
+.school-focus .school-essential {border:0;padding:0;}.school-focus .ready-line {display:flex;gap:10px;flex-wrap:wrap;}
+.planner-week {display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border-top:2px solid var(--ink);border-left:1px solid var(--rule);}
+.planner-day {min-width:0;border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);padding:0 10px 16px;background:var(--paper);}
+.planner-day h2 {margin:0 0 12px;}.planner-display .day-heading {border:0;border-radius:0;background:transparent;padding:12px 0 10px;text-align:left;width:100%;display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;}
+.day-dow {font-size:13px;text-transform:uppercase;font-weight:650;}.day-number {font-size:30px;line-height:1.1;}.day-month {font-size:12px;}.today-label {font-size:10px;letter-spacing:.06em;padding:2px 4px;background:var(--ink);color:var(--paper);}
+.planner-day.is-today {border-top:4px solid var(--ink);}.planner-day.is-today .day-heading {padding-top:8px;}
+.planner-rota {padding:8px;margin:0 0 12px;border:1px solid var(--rule);font-size:12px;line-height:1.4;overflow-wrap:anywhere;}
+.planner-rota>strong,.planner-rota>span {display:block;}.planner-rota>span {margin-top:3px;}
+.planner-rota.rota-0 {border:1px dashed var(--rule);}.planner-rota.rota-3,.month-rota.rota-3 {border:3px double var(--ink);font-weight:700;}
+.planner-rota.rota-4,.month-rota.rota-4 {border:2px solid var(--ink);font-weight:700;}
+.school-essential {border-top:1px solid var(--rule);padding:10px 0;overflow-wrap:anywhere;}
+.planner-owner {display:inline-block;border-left:4px solid;padding-left:6px;font-size:14px;font-weight:700;}
+.owner-blue {border-left-color:#345f91;}.owner-green {border-left-color:#37664d;}.owner-red {border-left-color:#983c33;}.owner-yellow {border-left-color:#877100;}.owner-black {border-left-color:var(--ink);}
+.cycle-label {font-size:11px;display:block;margin:3px 0;}.ready-line {font-size:13px;margin:5px 0;}.ready-line strong,.ready-line>span {display:block;}.uniform-pe {text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:3px;}
+.packing-note,.planner-muted {font-size:12px;margin:5px 0;}.packing-note {font-weight:550;}.lesson-list {list-style:none;padding:0;margin:9px 0 0;font-size:12px;}.lesson-list li {padding:4px 0;border-top:1px dotted var(--rule);}
+.planner-events {list-style:none;padding:0;margin:0;}.planner-entry {border-left-width:3px;border-left-style:solid;margin:12px 0 0;padding:0 0 0 7px;overflow-wrap:anywhere;}
+.planner-entry>strong {display:block;font-size:14px;line-height:1.35;}.entry-time {display:block;font-size:12px;margin-bottom:2px;font-weight:550;}.entry-owner,.entry-notes {display:block;font-size:12px;margin-top:2px;}.entry-owner {font-weight:550;}
+.empty-day {font-size:12px;margin:16px 0 0;}.more-events {margin-top:12px;}.more-events>summary {font-size:12px;font-weight:650;display:flex;align-items:center;cursor:pointer;}
+.planner-month {display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border-top:2px solid var(--ink);border-left:1px solid var(--rule);margin:16px 0;}
+.month-dow {text-transform:uppercase;font-size:12px;text-align:center;padding:8px;border-bottom:1px solid var(--rule);border-right:1px solid var(--rule);}
+.planner-display .month-day {min-height:116px;border-radius:0;border:0;border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);text-align:left;display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:10px;}
+.month-day.is-today {outline:3px solid var(--ink);outline-offset:-3px;}.month-number {font-size:23px;}.month-rota {font-size:12px;padding:2px 4px;max-width:100%;overflow-wrap:anywhere;}.month-count {font-size:12px;}.outside-month .month-number {font-weight:400;}
+.planner-display .frame-controls {position:static;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));width:100%;margin:18px 0 12px;gap:10px;padding:0;background:none;border:0;height:auto;}
+.planner-display .frame-controls button {border:1px solid var(--rule);background:var(--paper);color:var(--ink);font-size:15px;min-height:48px;}
+.planner-display .statusline {position:static;display:flex;align-items:center;justify-content:flex-start;gap:10px;flex-wrap:wrap;padding:8px 0;font-size:12px;background:none;width:auto;height:auto;min-height:0;}
+.planner-display .statusline .badge {font-size:11px;border:1px solid var(--ink);background:none;color:var(--ink);padding:4px 6px;white-space:nowrap;}.planner-display #message {flex:1;min-width:180px;}
+.planner-display .agenda {position:static;margin:12px 0 0;border-top:1px solid var(--rule);padding:0;max-height:none;background:var(--paper);width:auto;}
+.planner-display .agenda>summary {display:flex;align-items:center;font-size:14px;cursor:pointer;}.planner-display .agenda>summary::before {content:'+ ';margin-right:8px;}.planner-display .agenda[open]>summary::before {content:'− ';}.planner-display .agenda>p {font-size:13px;max-width:900px;}
+.planner-display dialog {background:var(--paper);color:var(--ink);border:2px solid var(--ink);border-radius:6px;max-width:720px;width:calc(100% - 32px);padding:22px;max-height:90vh;overflow:auto;}.planner-display dialog::backdrop {background:rgb(0 0 0 / .4);}
+.day-dialog-header {display:flex;justify-content:space-between;gap:12px;align-items:start;margin-bottom:16px;}.day-dialog-header h2 {font-size:23px;margin:0;}.day-dialog-header button {flex-shrink:0;}
+#day-content .school-essential {padding:14px 0;}#day-content .planner-rota {font-size:15px;}#day-content .lesson-list {font-size:14px;}#day-content .ready-line {display:flex;gap:14px;}#day-content .planner-entry>strong {font-size:16px;}
+.planner-unavailable {border:2px solid var(--ink);padding:36px 24px;margin:20px 0;overflow-wrap:anywhere;}
+.planner-mono {--paper:#fff;--ink:#000;--rule:#555;}.planner-mono [class*="owner-"] {border-left-color:#000;}.planner-mono .brand-dot {color:#000;}
+.planner-mono * {box-shadow:none!important;text-shadow:none!important;transition:none!important;animation:none!important;}.planner-display * {scroll-behavior:auto;}
+@media(max-width:1100px) and (min-width:681px) { .planner-week {grid-template-columns:repeat(2,minmax(0,1fr));}.planner-day:last-child {grid-column:1/-1;}.planner-day {padding:0 16px 18px;}.planner-day .ready-line {display:flex;gap:12px;}.school-focus {grid-template-columns:repeat(2,minmax(0,1fr));}.focus-title {grid-column:1/-1;}.planner-day .planner-events {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}.planner-heading {display:block;}.planner-caption {margin-top:10px;} }
+@media(max-width:680px) {
+ .planner-display main {padding:0 12px 16px;}.planner-display .topbar {padding:8px 12px;}.planner-toolbar {gap:10px;}.planner-toggles {gap:6px;width:100%;}.planner-display .planner-toggles button {font-size:12px;padding:8px;flex:1;}.planner-display .planner-heading h1 {font-size:25px;}.planner-caption {font-size:12px;}.school-focus {display:block;padding:14px;margin-bottom:16px;}.focus-title {font-size:18px;margin:0 0 12px;}.focus-child+.focus-child {border-top:1px solid var(--rule);padding-top:12px;margin-top:12px;}
+ .planner-week {display:block;}.planner-day {padding:0 12px 16px;}.planner-day .ready-line {display:flex;gap:12px;}.planner-day .school-essential {padding:9px 0;}.cycle-label {display:inline;margin-left:8px;}.planner-day h2 {margin-bottom:2px;}.day-heading .today-label {margin-left:auto;}.planner-entry>strong {font-size:16px;}.planner-rota {font-size:13px;}.planner-rota>span {display:inline-block;margin-right:8px;}.planner-guidance {font-size:12px;}.planner-display .frame-controls {gap:6px;}.planner-display .frame-controls button {font-size:12px;padding:8px 4px;}
+ .planner-display .month-day {padding:5px 3px;min-height:103px;gap:5px;}.month-number {font-size:19px;}.month-rota {font-size:10px;padding:1px;}.month-count {font-size:10px;}.month-dow {font-size:10px;padding:7px 0;}.day-dialog-header h2 {font-size:19px;}.planner-display dialog {padding:15px;}
+}
+@media print { .planner-display .topbar,.planner-toolbar,.frame-controls,.agenda,.statusline {display:none!important;}.planner-display {--paper:#fff;--ink:#000;--rule:#555;}.planner-week {display:grid;grid-template-columns:repeat(7,minmax(0,1fr));}.planner-day {break-inside:avoid;}.school-focus {break-inside:avoid;}.planner-display main {padding:0;} }
+/* Neutralise legacy fixed-screen rules, including their more-specific selectors. */
+.planner-display #message {white-space:normal;overflow:visible;text-overflow:clip;max-width:none;}
+.planner-display .school-essential {margin-top:0;}
+.planner-display .agenda[open] {position:static;inset:auto;height:auto;width:auto;padding:0;overflow:visible;background:var(--paper);}
+.planner-display .agenda[open]>summary {position:static;top:auto;background:var(--paper);}
+.planner-display dialog::backdrop {backdrop-filter:none;}
+.planner-display .frame-controls {margin:0 0 18px;}
+.planner-display .frame-controls span {font-size:inherit;}
+.planner-display .agenda {color:var(--ink);}
+.planner-display .statusline:has(.badge.error) {flex-wrap:wrap;}
+
+/* Fullscreen and installed displays keep chrome out of the calendar's space. */
+.school-focus-wrap>summary {cursor:pointer;font-weight:650;padding:6px 0;}
+.planner-display:not(.planner-fullscreen) .school-focus-wrap>summary {display:none;}
+.planner-fullscreen {height:100dvh;min-height:0;overflow:hidden;}
+.planner-fullscreen .topbar {position:absolute;top:env(safe-area-inset-top);right:env(safe-area-inset-right);min-height:0;height:48px;padding:2px 8px;border:0;z-index:10;}
+.planner-fullscreen .brand {display:none;}
+.planner-fullscreen main {display:flex;flex-direction:column;max-width:none;flex:1;min-height:0;overflow:hidden;padding:6px 8px 0;}
+.planner-fullscreen #display-menu .tools {max-height:calc(100dvh - 64px);overflow:auto;}
+.planner-fullscreen .planner-toolbar {display:grid;margin:0;padding:0 0 8px;gap:8px;}
+.planner-fullscreen .planner-toggles {display:grid;width:100%;}
+.planner-fullscreen #planner {display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;}
+.planner-fullscreen .planner-heading {flex:none;display:block;padding-right:88px;}
+.planner-fullscreen .planner-kicker,.planner-fullscreen .planner-caption {display:none;}
+.planner-fullscreen .planner-heading h1 {font-size:clamp(22px,2.7vw,34px);line-height:1.15;min-height:44px;display:flex;align-items:center;}
+.planner-fullscreen .planner-guidance {flex:none;margin:2px 0 6px;font-size:12px;}
+.planner-fullscreen .school-focus-wrap {flex:none;max-height:28dvh;overflow:auto;margin:0 0 4px;}
+.planner-fullscreen .school-focus {margin:0;padding:8px;gap:8px;}
+.planner-fullscreen .focus-title {display:none;}
+.planner-fullscreen .planner-week,.planner-fullscreen .planner-month {flex:1;min-height:0;margin:0;overflow:hidden;}
+.planner-fullscreen .planner-week {grid-template-columns:repeat(7,minmax(0,1fr));grid-template-rows:minmax(0,1fr);}
+.planner-fullscreen .planner-day {grid-column:auto;min-height:0;overflow:auto;overscroll-behavior:contain;padding:0 8px 8px;}
+.planner-fullscreen .planner-day h2 {position:sticky;top:0;background:var(--paper);z-index:1;margin:0;}
+.planner-fullscreen .planner-day .planner-events {display:block;}
+.planner-fullscreen .planner-month {grid-template-rows:28px repeat(var(--weeks),minmax(0,1fr));}
+.planner-fullscreen .month-dow {padding:4px;}
+.planner-fullscreen .month-day {min-height:0;padding:4px 6px;gap:2px;overflow:auto;}
+.planner-fullscreen .month-number {font-size:24px;line-height:1.1;}
+.planner-fullscreen .frame-controls {order:2;flex:none;width:calc(100% - 76px);height:48px;margin:0;padding:2px 0;gap:4px;}
+.planner-fullscreen .frame-controls button {min-height:44px;padding:4px;font-size:13px;}
+.planner-fullscreen .statusline {display:none;order:3;flex:none;min-height:28px;padding:2px 0;}
+.planner-fullscreen .statusline:has(.badge.error) {display:flex;flex-wrap:nowrap;height:28px;}
+.planner-fullscreen #message {min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.planner-fullscreen .agenda {position:absolute;right:8px;bottom:0;width:72px;height:48px;margin:0;border:0;}
+.planner-fullscreen main:has(.badge.error) .agenda:not([open]) {bottom:28px;}
+.planner-fullscreen .agenda[open] {position:absolute;inset:0;width:auto;height:auto;padding:12px;overflow:auto;z-index:8;}
+.planner-fullscreen .agenda[open]>summary {position:sticky;top:-12px;background:var(--paper);padding-right:88px;}
+@media(max-width:680px) and (orientation:portrait) {
+ .planner-fullscreen .planner-week {display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:repeat(7,minmax(0,1fr));}
+ .planner-fullscreen .planner-day {padding-left:76px;}
+ .planner-fullscreen .planner-day h2 {float:left;width:64px;margin-left:-70px;}
+ .planner-fullscreen .day-heading {padding:4px 0;gap:2px 6px;}
+ .planner-fullscreen .day-number {font-size:26px;}
+ .planner-fullscreen .planner-day .school-essential {padding:4px 0;}
+ .planner-fullscreen .planner-rota {margin:4px 0;padding:4px;}
+ .planner-fullscreen .planner-day .ready-line {margin:2px 0;}
+}
+@media(max-height:500px) {
+ .planner-fullscreen .month-day {flex-direction:row;flex-wrap:wrap;align-content:flex-start;gap:2px 6px;}
+ .planner-fullscreen .month-number {font-size:20px;}
+ .planner-fullscreen .month-rota {font-size:11px;}
+ .planner-fullscreen .month-count {font-size:11px;}
+}
+
+.planner-fullscreen .planner-guidance::after {content:' Tap a date for full details.';}
+@media print {
+ .planner-fullscreen,.planner-fullscreen main,.planner-fullscreen #planner,.planner-fullscreen .planner-day {height:auto;overflow:visible;}
+ .planner-fullscreen #planner {display:block;}
+ .planner-fullscreen .planner-week,.planner-fullscreen .planner-month {overflow:visible;grid-template-rows:auto;}
+ .planner-fullscreen .month-day {min-height:116px;}
+}

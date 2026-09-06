@@ -1,10 +1,11 @@
+import {validateSchool} from './school.mjs';
 export const VERSION = '0.5.0';
 export const STORAGE_KEY = 'paperweek.settings.v3';
 export const COLOURS = {black: 0, red: 2, yellow: 3, blue: 4, green: 5};
 export function defaults() {
   return {
     version: 3, title: 'Our calendar', timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC', weekStart: 1,
-    defaultView: 'month', paperPalette: true, maskPrivate: true, deduplicate: false,
+    defaultView: 'month', school: [], paperPalette: true, maskPrivate: true, deduplicate: false,
     rotaMember: 'member-2', persistentLabels: true, helpSeconds: 20,
     refreshSeconds: 0, pollMinutes: 5, clientId: '', source: 'demo',
     members: [
@@ -36,7 +37,7 @@ export function validateConfig(raw) {
   c.timezone = text(raw.timezone, 'Timezone', 64);
   try { new Intl.DateTimeFormat('en', {timeZone:c.timezone}).format(); } catch { throw new Error('Choose a valid IANA timezone, such as UTC or Europe/London.'); }
   c.weekStart = integer(raw.weekStart, 'First day', 0, 1);
-  if (!['week','month'].includes(raw.defaultView)) throw new Error('Default view must be week or month.');
+  if (!['rolling','week','month'].includes(raw.defaultView)) throw new Error('Default view must be rolling, week or month.');
   c.defaultView = raw.defaultView;
   for (const key of ['paperPalette','maskPrivate','deduplicate','persistentLabels']) c[key] = boolean(raw[key], key);
   c.helpSeconds = integer(raw.helpSeconds, 'Help timeout', 5, 120);
@@ -65,6 +66,7 @@ export function validateConfig(raw) {
   });
   c.rotaMember = text(raw.rotaMember, 'Rota member', 48, true);
   if (c.rotaMember && !keys.has(c.rotaMember)) throw new Error('The rota calendar must be one of the selected members.');
+  c.school = validateSchool(raw.school ?? [], c.members);
   return c; // Unknown keys (including tokens and secrets) are intentionally dropped.
 }
 export function loadConfig(storage = globalThis.localStorage) {
