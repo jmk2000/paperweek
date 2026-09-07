@@ -8,7 +8,7 @@ mkdir -p build/preview
   -Itools/freestanding/include -Icore -Iui \
   core/calendar.c ui/calendar_ui.c platform/web/bridge.c platform/web/canvas_browser.c \
   tools/freestanding/minilib.c \
-  -Wl,--no-entry -Wl,--export-all -Wl,--export-memory \
+  -Wl,--no-entry -Wl,--export-all \
   -Wl,--initial-memory=4194304 -Wl,--max-memory=16777216 -Wl,-z,stack-size=131072 \
   -o build/preview/paperweek-preview.wasm
 python3 tools/package_web.py preview
