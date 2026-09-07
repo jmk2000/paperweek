@@ -218,12 +218,19 @@ Status words on a physical e-paper screen would eventually require a redraw when
 but a poll with identical visible content does not redraw merely for a timestamp. The tablet's
 status line can update without re-rendering the C calendar framebuffer.
 
-### Optional tablet offline copy
+### Tablet offline copy
 
-Under **Text agenda & this device**, enable storing the last complete view only on a trusted tablet.
-This is **unencrypted localStorage**, not an encrypted vault. It holds at most one displayed view
-and expires after seven days or the session expiry, whichever is sooner. No Google token is stored
-in it. The service worker caches only public app assets, never API responses or OAuth URLs.
+Offline downloads are enabled by default; an existing explicit opt-out is respected. Under
+**Text agenda & this device**, use **Download calendars for offline use** to disable and remove them.
+While open and connected to the server, the app polls the full supported browsing range (roughly
+two years before and after today), downloading future months first. Wait for **Offline calendars
+ready** before leaving the network. Only dates already published by your calendar sources can be saved.
+
+The last complete view is kept in localStorage for immediate startup; monthly snapshots use IndexedDB
+so other downloaded dates can also be browsed offline. These are **unencrypted device storage**,
+not an encrypted vault. Each copy expires after seven days or the session expiry, whichever is sooner.
+No Google token is stored in it. The service worker caches only public app assets, never API responses
+or OAuth URLs. The app cannot refresh calendar data while closed or away from the server's network.
 
 An online display receiving a revoked/expired session clears its private copy. A disconnected device
 cannot receive a revocation immediately; it can retain the copy until local expiry or manual removal.

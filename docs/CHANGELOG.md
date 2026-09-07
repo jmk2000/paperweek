@@ -44,3 +44,14 @@ Install from the HTTPS deployment on a tablet. Android: Menu → Install app (or
 - Web text now sizes against CSS pixels instead of shrinking a fixed 1600-pixel canvas. The visible month/year, week range and day numbers stay prominent.
 - Portrait week view uses seven stacked day rows. The calendar replaces the duplicate branding header; navigation and agenda share one bottom row, with sync details in the agenda and warnings still visible.
 - On the web display, blank rota means assumed off when loaded without warnings. Empty and explicit OFF boxes are omitted. Unavailable, stale or warning-bearing data is labelled unconfirmed; WORK, on-call and conflicts remain visible. Source data and the physical e-paper layout are unchanged.
+
+### Automatic offline calendar downloads
+
+- Enable private device caching by default, preserving existing opt-outs. Show the saved view immediately at startup.
+- Download all supported months (roughly two years past and future), future first, into IndexedDB while the app is open and connected. Display progress in the agenda.
+- Allow offline navigation across downloaded months, including after restarting the PWA. Missing dates remain explicitly unavailable; copies expire after seven days or pairing expiry.
+- Clear all downloaded dates on opt-out, configuration change or online session revocation.
+
+### Planner swipe restoration
+
+- Restore sliding left/right navigation on the visible web/PWA planner after the move from canvas to DOM rendering. Preserve date taps, vertical scrolling and reduced-motion preferences.

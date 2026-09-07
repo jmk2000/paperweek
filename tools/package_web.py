@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 import shutil
 ROOT = Path(__file__).resolve().parents[1]
-ASSETS = ['school.mjs','school-editor.mjs','school-editor.css','planner-model.mjs','planner-renderer.mjs','planner.css','index.html','styles.css','app.mjs','config.mjs','dates.mjs','events.mjs','google.mjs',
+ASSETS = ['offline-store.mjs','school.mjs','school-editor.mjs','school-editor.css','planner-model.mjs','planner-renderer.mjs','planner.css','index.html','styles.css','app.mjs','config.mjs','dates.mjs','events.mjs','google.mjs',
           'renderer.mjs','display-controls.mjs','server.html','admin.html','backend-app.mjs','admin.mjs','backend-client.mjs','backend.css','manifest.webmanifest','icon.svg','icon-192.png','icon-512.png']
 def package(backend: str) -> Path:
     out = ROOT / f'dist-{backend}'
@@ -76,7 +76,7 @@ self.addEventListener('fetch',e=>{
  if(e.request.mode==='navigate'&&['/','/index.html'].includes(u.pathname))target=new URL('server.html',SCOPE).href;
  if(e.request.mode==='navigate'&&u.pathname==='/admin')target=new URL('admin.html',SCOPE).href;
  if(!ASSETS.includes(target))return;
- e.respondWith(fetch(e.request).then(response=>response.ok?response:caches.open(CACHE).then(c=>c.match(target)).then(hit=>hit||response)).catch(()=>caches.open(CACHE).then(c=>c.match(target))));
+ e.respondWith(caches.open(CACHE).then(c=>c.match(target)).then(hit=>hit||fetch(e.request)));
 });
 """.replace('@HASH@',digest).replace('@FILES@',json.dumps(server_files))
     (out/'server-sw.js').write_text(server_worker)

@@ -2,13 +2,20 @@ export function swipeAction(dx,dy,elapsed){
   return elapsed<=900&&Math.abs(dx)>=60&&Math.abs(dx)>Math.abs(dy)*1.5?(dx<0?3:0):null;
 }
 export function setupDisplay(navigate,say,{animateNavigation=true}={}){
-  const canvas=document.getElementById('calendar'),menu=document.getElementById('display-menu');
-  let start=null,sliding=false,ghost=null,offset=0;
+  const canvas=document.getElementById('planner')||document.getElementById('calendar'),menu=document.getElementById('display-menu');
+  let start=null,sliding=false,ghost=null,offset=0,suppressClick=false;
   const reduced=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
   const snapshot=()=>{
-    ghost=document.createElement('canvas');ghost.width=canvas.width;ghost.height=canvas.height;
-    ghost.className='swipe-copy';ghost.setAttribute('aria-hidden','true');
-    ghost.getContext('2d').drawImage(canvas,0,0);canvas.parentElement.append(ghost);
+    if(canvas instanceof HTMLCanvasElement){
+      ghost=document.createElement('canvas');ghost.width=canvas.width;ghost.height=canvas.height;
+      ghost.getContext('2d').drawImage(canvas,0,0);
+    }else{
+      ghost=canvas.cloneNode(true);ghost.removeAttribute('id');ghost.classList.add('planner-swipe');
+      ghost.querySelectorAll('[id]').forEach(n=>n.removeAttribute('id'));
+      Object.assign(ghost.style,{inset:'auto',left:`${canvas.offsetLeft}px`,top:`${canvas.offsetTop}px`,width:`${canvas.offsetWidth}px`,height:`${canvas.offsetHeight}px`});
+    }
+    ghost.classList.add('swipe-copy');ghost.setAttribute('aria-hidden','true');ghost.inert=true;
+    canvas.parentElement.append(ghost);
   };
   const reset=()=>{ghost?.remove();ghost=null;canvas.style.visibility='';canvas.style.transform='';offset=0;};
   const animate=(el,from,to)=>el.animate([{transform:`translateX(${from}px)`},{transform:`translateX(${to}px)`}],
@@ -36,12 +43,12 @@ export function setupDisplay(navigate,say,{animateNavigation=true}={}){
     if(!e.isPrimary||sliding||document.querySelector('dialog[open]')||document.querySelector('[data-nav]:disabled'))return;
     if(e.pointerType==='mouse'&&e.button!==0)return;
     start={x:e.clientX,y:e.clientY,time:e.timeStamp,id:e.pointerId};
-    canvas.setPointerCapture(e.pointerId);
+    suppressClick=false;
   });
   canvas.addEventListener('pointermove',e=>{
     if(!start||start.id!==e.pointerId||sliding)return;
     const dx=e.clientX-start.x,dy=e.clientY-start.y;
-    if(!ghost&&Math.abs(dx)>8&&Math.abs(dx)>Math.abs(dy)*1.5){snapshot();canvas.style.visibility='hidden';}
+    if(!ghost&&Math.abs(dx)>8&&Math.abs(dx)>Math.abs(dy)*1.5){canvas.setPointerCapture(e.pointerId);suppressClick=true;snapshot();canvas.style.visibility='hidden';}
     if(ghost){offset=reduced()?0:Math.max(-canvas.clientWidth,Math.min(canvas.clientWidth,dx));ghost.style.transform=`translateX(${offset}px)`;}
   });
   const finish=async(e,cancel=false)=>{
@@ -50,6 +57,7 @@ export function setupDisplay(navigate,say,{animateNavigation=true}={}){
     if(action!==null){await move(action);return;}
     if(ghost){sliding=true;const animation=animate(ghost,offset,0);try{await animation.finished;}finally{animation.cancel();reset();sliding=false;}}
   };
+  canvas.addEventListener('click',e=>{if(suppressClick){e.preventDefault();e.stopImmediatePropagation();suppressClick=false;}},true);
   canvas.addEventListener('pointercancel',e=>finish(e,true));
   canvas.addEventListener('pointerup',e=>finish(e));
   const install=document.createElement('button');install.textContent='Install app';menu.querySelector('.tools').append(install);

@@ -29,7 +29,7 @@ from .ical import ICalendar, isolated
 PUBLIC_ASSETS = {
     'school.mjs', 'school-editor.mjs', 'school-editor.css',
     'planner-model.mjs', 'planner-renderer.mjs', 'planner.css',
-    'server.html', 'admin.html', 'backend-app.mjs', 'admin.mjs', 'backend-client.mjs',
+    'server.html', 'admin.html', 'backend-app.mjs', 'admin.mjs', 'offline-store.mjs', 'backend-client.mjs',
     'backend.css', 'config.mjs', 'dates.mjs', 'events.mjs', 'renderer.mjs', 'display-controls.mjs',
     'styles.css', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png',
     'paperweek-preview.wasm', 'paperweek-lvgl.wasm', 'paperweek-lvgl.mjs',

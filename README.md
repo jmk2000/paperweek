@@ -23,7 +23,7 @@ have not been exercised in the release environment. This is not finished ESP32 f
   one optional rota band; privacy masking; six-colour design palette; physical-button simulation.
 - The actual existing C model and layout compiled to WebAssembly. The supplied preview uses
   browser fonts, **not an LVGL framebuffer**. The separate LVGL build target remains available.
-- Opt-in, bounded private offline storage for the last complete tablet view; optional wake lock,
+- Default-on, bounded private offline downloads for the full supported calendar range; optional wake lock,
   full-screen controls, a service worker and a home-screen app manifest.
 - Docker Compose deployment behind an existing HTTPS reverse proxy. No GPU is needed.
 

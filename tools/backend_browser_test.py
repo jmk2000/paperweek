@@ -34,7 +34,7 @@ PASSWORD='component test administrator password'
 
 
 def bundle(entry):
-    modules=['display-controls','config','dates','events','renderer','backend-client',entry]
+    modules=['display-controls','config','dates','events','renderer','offline-store','backend-client',entry]
     result=['globalThis.__modules={};']
     for name in modules:
         s=(ROOT/'web'/f'{name}.mjs').read_text()

@@ -135,3 +135,9 @@
  .planner-fullscreen .planner-week,.planner-fullscreen .planner-month {overflow:visible;grid-template-rows:auto;}
  .planner-fullscreen .month-day {min-height:116px;}
 }
+
+/* Slide a visual copy while the next calendar range loads. */
+.planner-display main {position:relative;overflow-x:clip;}
+#planner {touch-action:pan-y;}
+.planner-swipe {background:var(--paper);overflow:hidden;}
+.planner-fullscreen .planner-swipe {display:flex;flex-direction:column;min-height:0;}

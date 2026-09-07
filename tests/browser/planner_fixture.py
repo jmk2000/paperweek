@@ -35,7 +35,8 @@ def fixture():
     def timed(id_, title, start, end):
         return dict(id=id_, iCalUID=id_, summary=title, start={'dateTime':start}, end={'dateTime':end})
     events = {
-        'member-1': [timed('shift-1', '[PW:WORK]', '2026-09-07T08:00:00+01:00', '2026-09-07T17:00:00+01:00'),
+        'member-1': [timed('christmas-rota', '[PW:WORK] Christmas shift', '2026-12-25T08:00:00Z', '2026-12-25T17:00:00Z'),
+                     timed('shift-1', '[PW:WORK]', '2026-09-07T08:00:00+01:00', '2026-09-07T17:00:00+01:00'),
                      timed('shift-2', '[PW:WORK]', '2026-09-09T08:00:00+01:00', '2026-09-09T17:00:00+01:00'),
                      timed('shift-3', '[PW:ONCALL]', '2026-09-10T18:00:00+01:00', '2026-09-11T08:00:00+01:00'),
                      timed('shift-4', '[PW:WORK]', '2026-09-11T09:00:00+01:00', '2026-09-11T13:00:00+01:00'),

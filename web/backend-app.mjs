@@ -1,3 +1,4 @@
+import {cacheWindow,readWindowSnapshot,offlineWindows} from './offline-store.mjs';
 import {setupDisplay,showBuild} from './display-controls.mjs';
 import {defaults,validateConfig} from './config.mjs';
 import {createPlannerRenderer} from './planner-renderer.mjs';
@@ -6,18 +7,20 @@ import {isoDay,ordinal,zonedParts} from './dates.mjs';
 import {api,ApiError,preferences,setPreferences,cacheSnapshot,readOffline,clearOffline} from './backend-client.mjs';
 const $=id=>document.getElementById(id);
 let config=defaults(),renderer,auth=null,lastGood=null,lastHash='',busy=false,lastPoll=0,retryMs=20000;
+let cacheError='',networkOffline=false,downloading=false,nextDownload=0,downloadGeneration=0;
+const downloaded=new Map();
 let revision=-1,epoch=-1,followToday=true,stale=false,prefs=preferences(),wake=null;
 const now=()=>zonedParts(new Date(),config.timezone);
 function say(text,error=false){if($('message').textContent!==text)$('message').textContent=text;$('source-badge').textContent=error?'CHECK DATA':config.source==='demo'?'DEMO':'SERVER';$('source-badge').classList.toggle('error',error);}
 function setBusy(value){busy=value;document.querySelectorAll('[data-nav]').forEach(b=>b.disabled=value);$('refresh').disabled=value;$('view-mode').disabled=value;}
 function labels(){const names=['Previous','Today',renderer.month?(renderer.weekMode==='rolling'?'Next 7 days':'Week view'):'Month view','Next'];document.querySelectorAll('[data-nav]').forEach((b,i)=>b.querySelector('span').textContent=names[i]);}
 function blank(text){renderer.events([]);renderer.render('unavailable',text,true);lastHash='';$('agenda-text').replaceChildren();}
-function requirePair(){auth=null;lastGood=null;clearOffline();blank('DISPLAY NOT PAIRED / Open administration to get a pairing code');if(!$('pair-dialog').open)$('pair-dialog').showModal();}
+function requirePair(){downloadGeneration++;downloaded.clear();auth=null;lastGood=null;clearOffline();blank('DISPLAY NOT PAIRED / Open administration to get a pairing code');if(!$('pair-dialog').open)$('pair-dialog').showModal();}
 $('pair-dialog').addEventListener('cancel',e=>e.preventDefault());
 function assignConfig(next,newRevision,newEpoch){
   const changed=revision!==newRevision||epoch!==newEpoch;
   config=validateConfig(next);
-  if(changed){clearOffline();lastGood=null;lastHash='';renderer.configure(config);blank('LOADING / Fetching configured calendars');}
+  if(changed){downloadGeneration++;downloaded.clear();nextDownload=0;clearOffline();lastGood=null;lastHash='';renderer.configure(config);blank('LOADING / Fetching configured calendars');}
   revision=newRevision;epoch=newEpoch;
   return changed;
 }
@@ -25,7 +28,7 @@ function expand(snapshot){
   if(snapshot.config.source==='demo')return demoEvents(ordinal(snapshot.first),snapshot.days,config);
   const events=[];
   for(const b of snapshot.batches){const index=config.members.findIndex(m=>m.key===b.member);if(index<0)throw new Error('Calendar mapping changed. Retrying.');
-    for(const raw of b.items){const e=normaliseEvent(raw,config.members[index],index,config);if(e)events.push(e);}
+    for(const raw of b.items){const e=normaliseEvent(raw,config.members[index],index,config);if(e&&e.startDay<ordinal(snapshot.first)+snapshot.days&&e.endDay>=ordinal(snapshot.first))events.push(e);}
   }return validateEvents(events,config);
 }
 function agenda(events){
@@ -51,6 +54,7 @@ async function paint(force=false){
   renderer.draw();lastHash=hash;renderer.visible(performance.now());labels();
 }
 async function useSnapshot(snapshot,offline=false){
+  networkOffline=offline;
   config=validateConfig(snapshot.config);if(JSON.stringify(renderer.config)!==JSON.stringify(config))renderer.configure(config);
   const range=renderer.range;
   if(ordinal(snapshot.first)!==range.first||snapshot.days!==range.count){
@@ -60,7 +64,7 @@ async function useSnapshot(snapshot,offline=false){
   }
   const events=expand(snapshot);renderer.events(events);stale=offline||Boolean(snapshot.stale);
   await paint();agenda(events);lastGood={snapshot,events,anchor:renderer.anchor,month:renderer.month,viewMode:renderer.mode,today:now().day};
-  if(!offline&&prefs.offline&&auth){try{cacheSnapshot({...snapshot,anchor:renderer.anchor,month:renderer.month,viewMode:renderer.mode},auth.expires);}catch{say('View loaded, but offline storage is unavailable.',true);}}
+  if(!offline&&prefs.offline&&auth){try{cacheSnapshot({...snapshot,anchor:renderer.anchor,month:renderer.month,viewMode:renderer.mode},auth.expires);cacheError='';}catch(e){cacheError=e.message;$('offline-progress').textContent='Offline download paused: '+cacheError;}}
   const stamp=snapshot.lastSuccess?new Date(snapshot.lastSuccess*1000).toLocaleString():'';
   if(offline)say('SERVER UNREACHABLE · Showing the saved view; it may be out of date.',true);
   else if(config.source==='demo')say('Invented demo events · Configure calendar sources and school routines in Administration');
@@ -69,9 +73,48 @@ async function useSnapshot(snapshot,offline=false){
   else if(snapshot.unmappedMembers?.length)say('Some configured people have no linked live source. Check administration.',true);
   else say(`Calendar data synced ${stamp||'successfully'} · Automatic source checks run on the server`);
 }
-async function load(){
+async function pollOffline(){
+  if(cacheError){$('offline-progress').textContent='Offline download paused: '+cacheError;return;}
+  if(downloading||!prefs.offline||!auth||Date.now()<nextDownload||document.visibilityState!=='visible')return;
+  downloading=true;
+  const generation=downloadGeneration,rev=revision,dataEpoch=epoch,windows=offlineWindows(now().day);
+  const progress=$('offline-progress'),interval=config.pollMinutes*60000;
+  const active=()=>prefs.offline&&auth&&generation===downloadGeneration&&rev===revision&&dataEpoch===epoch;
+  let saved=0;
+  try{
+    for(const range of windows){
+      if(!active()||document.visibilityState!=='visible')return;
+      const key=`${range.first}:${range.count}`;
+      if(Date.now()-(downloaded.get(key)||0)<interval){saved++;continue;}
+      progress.textContent=`Saving calendars for offline use: ${saved} of ${windows.length} date windows ready…`;
+      const snapshot=await api(`/api/display/snapshot?first=${isoDay(range.first)}&days=${range.count}`);
+      if(!active())return;
+      if(snapshot.revision!==rev||snapshot.dataEpoch!==dataEpoch){nextDownload=0;return;}
+      if(!snapshot.ready)continue;
+      await cacheWindow(snapshot,auth.expires);
+      if(!active())return;
+      downloaded.set(key,Date.now());saved++;
+    }
+    progress.textContent=saved===windows.length?
+      `Offline calendars ready: ${isoDay(Math.min(...windows.map(w=>w.first)))} to ${isoDay(Math.max(...windows.map(w=>w.first+w.count))-1)}. Checked ${new Date().toLocaleTimeString()}.`:
+      `Offline download in progress: ${saved} of ${windows.length} date windows saved. Waiting for the server to load the remaining dates.`;
+    nextDownload=Date.now()+(saved===windows.length?interval:20000);
+  }catch(e){
+    if(!active())return;
+    if(e.status===401||e.status===403){requirePair();return;}
+    progress.textContent=`Offline download paused: ${e.message} Previously saved dates are retained.`;
+    nextDownload=Date.now()+60000;
+  }finally{downloading=false;}
+}
+async function load(preferOffline=false){
   if(!renderer||busy)return;setBusy(true);retryMs=20000;
   try{
+    if(preferOffline&&networkOffline&&prefs.offline){
+      const base=readOffline();
+      const saved=base?await readWindowSnapshot(base,renderer.range).catch(()=>null):null;
+      if(saved){await useSnapshot(saved,true);return;}
+      throw new ApiError('These dates have not been downloaded for offline use.',0);
+    }
     if(!auth)auth=await api('/api/session');
     const record=await api('/api/display/config');
     const anchor=renderer.anchor,month=renderer.month,viewMode=renderer.mode;
@@ -85,15 +128,17 @@ async function load(){
       throw new Error(`Waiting for ${problems} source/month window(s). Initial loading can take a minute; check source health in Administration if this persists.`);
     }
     snapshot.anchor=anchor;snapshot.month=month;snapshot.viewMode=viewMode;
-    await useSnapshot(snapshot);
+    await useSnapshot(snapshot);void pollOffline();
   }catch(e){
-    if(e.status===401){requirePair();say('Pair this display to continue.',true);return;}
-    stale=true;
-    if(lastGood){renderer.setMode(lastGood.viewMode,false);renderer.select(lastGood.anchor,lastGood.month);renderer.events(lastGood.events);await paint();say(e.message+' Showing the last loaded view.',true);}
-    else{const cached=prefs.offline&&e.status===0?readOffline():null;
-      if(cached){config=validateConfig(cached.snapshot.config);renderer.configure(config);renderer.setMode(cached.snapshot.viewMode||(cached.snapshot.month?'month':'week'),false);renderer.select(cached.snapshot.anchor,cached.snapshot.month);await useSnapshot(cached.snapshot,true);}
-      else{blank('NOT LOADED / '+e.message);say(e.message,true);}
-    }
+    if(e.status===401||e.status===403){requirePair();say('Pair this display to continue.',true);return;}
+    stale=true;if(e.status===0)networkOffline=true;
+    const base=prefs.offline&&e.status===0?readOffline():null;
+    let cached=null;
+    if(base){try{cached=await readWindowSnapshot(base,renderer.range);}catch{/* The last-view localStorage fallback still works without IndexedDB. */}}
+    if(cached){await useSnapshot(cached,true);}
+    else if(lastGood){renderer.setMode(lastGood.viewMode,false);renderer.select(lastGood.anchor,lastGood.month);renderer.events(lastGood.events);await paint();say(e.message+' These dates are not saved offline. Showing the last loaded view.',true);}
+    else if(base){config=validateConfig(base.snapshot.config);renderer.configure(config);renderer.setMode(base.snapshot.viewMode||(base.snapshot.month?'month':'week'),false);renderer.select(base.snapshot.anchor,base.snapshot.month);await useSnapshot(base.snapshot,true);}
+    else{blank('NOT LOADED / '+e.message);say(e.message,true);}
   }finally{lastPoll=Date.now();setBusy(false);labels();document.documentElement.dataset.ready='true';}
 }
 async function navigate(index){
@@ -102,7 +147,7 @@ async function navigate(index){
   if(action===1){setBusy(true);try{await paint(true);}finally{setBusy(false);}return;}
   if(action!==2)return;
   if(index===0||index===3)followToday=false;else if(index===1)followToday=true;
-  const previous=renderer.anchor;renderer.clock(now().day,now().second);renderer.navigate(index);await load();return renderer.anchor!==previous;
+  const previous=renderer.anchor;renderer.clock(now().day,now().second);renderer.navigate(index);await load(true);return renderer.anchor!==previous;
 }
 async function keepAwake(){
   if(!prefs.wake||document.visibilityState!=='visible')return;
@@ -111,12 +156,18 @@ async function keepAwake(){
 }
 $('wake').onclick=async()=>{prefs.wake=!prefs.wake;setPreferences(prefs);if(prefs.wake)await keepAwake();else{await wake?.release();$('wake').textContent='Keep awake';}};
 $('offline-copy').checked=prefs.offline;
-$('offline-copy').onchange=()=>{prefs.offline=$('offline-copy').checked;setPreferences(prefs);if(!prefs.offline)clearOffline();else if(lastGood&&auth)cacheSnapshot(lastGood.snapshot,auth.expires);};
+if(!prefs.offline)$('offline-progress').textContent='Offline downloads are disabled on this device.';
+$('offline-copy').onchange=async()=>{
+  prefs.offline=$('offline-copy').checked;downloadGeneration++;downloaded.clear();nextDownload=0;
+  try{setPreferences(prefs);if(!prefs.offline){await clearOffline();$('offline-progress').textContent='Offline downloads disabled; saved calendars removed.';}
+    else{if(lastGood&&auth)cacheSnapshot(lastGood.snapshot,auth.expires);void pollOffline();}
+  }catch(e){$('offline-progress').textContent='Could not update offline storage: '+e.message;}
+};
 $('pair-form').onsubmit=async e=>{e.preventDefault();$('pair-message').textContent='Pairing…';try{await api('/api/pair',{method:'POST',body:{code:$('pair-code').value}});auth=await api('/api/session');$('pair-code').value='';$('pair-dialog').close();await load();}catch(e){$('pair-message').textContent=e.message;}};
 $('forget-device').onclick=async()=>{if(!confirm('Unpair this browser and remove its saved offline calendar?'))return;clearOffline();try{await api('/api/logout',{method:'POST'});}catch{}requirePair();};
-$('refresh').onclick=load;
-$('view-mode').onchange=async()=>{if(!renderer||busy)return;renderer.setMode($('view-mode').value);await load();};
-const displayNavigate=setupDisplay(navigate,say,{animateNavigation:false});showBuild();
+$('refresh').onclick=()=>load();
+$('view-mode').onchange=async()=>{if(!renderer||busy)return;renderer.setMode($('view-mode').value);await load(true);};
+const displayNavigate=setupDisplay(navigate,say);showBuild();
 for(const b of document.querySelectorAll('[data-nav]'))b.onclick=()=>displayNavigate(Number(b.dataset.nav));
 document.addEventListener('keydown',e=>{if(document.querySelector('dialog[open]')||['INPUT','TEXTAREA','BUTTON','SELECT'].includes(document.activeElement?.tagName))return;const map={ArrowLeft:0,ArrowRight:3,t:1,T:1,m:2,M:2,'1':0,'2':1,'3':2,'4':3};if(Object.hasOwn(map,e.key)){e.preventDefault();displayNavigate(map[e.key]);}});
 window.addEventListener('online',()=>load());
@@ -130,9 +181,15 @@ setInterval(async()=>{
 try{
   renderer=await createPlannerRenderer($('calendar'));$('engine-label').textContent=renderer.type;
   renderer.configure(config);renderer.select(now().day,true);blank('CONNECTING TO LOCAL SERVER');
+  const cached=prefs.offline?readOffline():null;
+  if(cached){
+    config=validateConfig(cached.snapshot.config);revision=cached.snapshot.revision;epoch=cached.snapshot.dataEpoch??0;
+    renderer.configure(config);renderer.setMode(cached.snapshot.viewMode||(cached.snapshot.month?'month':'week'),false);
+    renderer.select(cached.snapshot.anchor??ordinal(cached.snapshot.first),cached.snapshot.month??true);await useSnapshot(cached.snapshot,true);
+  }
   if('serviceWorker'in navigator&&isSecureContext)navigator.serviceWorker.register('/server-sw.js',{scope:'/'}).catch(()=>{});
   try{auth=await api('/api/session');}catch(e){if(e.status===401){requirePair();throw e;}if(!prefs.offline)throw e;}
   const record=await api('/api/display/config').catch(e=>{if(e.status!==0)throw e;return null;});
   if(record){assignConfig(record.config,record.revision,record.dataEpoch??0);renderer.setMode(renderer.prefs.view||config.defaultView,false);renderer.select(now().day,renderer.month);}
   await load();await keepAwake();
-}catch(e){if(e.status!==401)say('Unable to start: '+e.message,true);document.documentElement.dataset.ready='true';}
+}catch(e){if(e.status!==401)say((lastGood?'SERVER UNREACHABLE · Showing the saved view. ':'Unable to start: ')+e.message,true);document.documentElement.dataset.ready='true';}

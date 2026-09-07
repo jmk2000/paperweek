@@ -1,4 +1,5 @@
-/** Same-origin API and deliberately bounded, opt-in private offline storage. */
+/** Same-origin API and bounded private offline storage. */
+import {clearWindowCache} from './offline-store.mjs';
 export class ApiError extends Error {
   constructor(message,status=0,payload=null){super(message);this.status=status;this.payload=payload;}
 }
@@ -20,9 +21,9 @@ export async function api(path,{method='GET',body,timeout=15000,signal}={}){
 }
 export const CACHE_KEY='paperweek.offline.v4';
 export const PREF_KEY='paperweek.device.v4';
-export function preferences(storage=localStorage){try{return {offline:false,wake:false,...JSON.parse(storage.getItem(PREF_KEY)||'{}')};}catch{return {offline:false,wake:false};}}
+export function preferences(storage=localStorage){try{return {offline:true,wake:false,...JSON.parse(storage.getItem(PREF_KEY)||'{}')};}catch{return {offline:true,wake:false};}}
 export function setPreferences(p,storage=localStorage){storage.setItem(PREF_KEY,JSON.stringify(p));}
-export function clearOffline(storage=localStorage){storage.removeItem(CACHE_KEY);}
+export function clearOffline(storage=localStorage){storage.removeItem(CACHE_KEY);return clearWindowCache().catch(()=>{});}
 export function cacheSnapshot(snapshot,sessionExpiry,storage=localStorage,now=Date.now()){
   if(!snapshot.ready)return;
   const expires=Math.min(now+7*86400000,sessionExpiry*1000);
